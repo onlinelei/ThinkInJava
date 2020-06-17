@@ -73,9 +73,6 @@ HashMap采用的链表法的方式，链表是单向链表。其他解决hash冲
 2. d i ＝ 1^2 ，－ 1^2 ， 2^2 ，－ 2^2 ， k^2， -k^2…… 二次探测再散列；
 3. d i ＝ 伪随机序列 伪随机再散列； 
 
-
-
-
 通过源码我们来一起看看 HashMap 内部的结构，它可以看作是数组（Node<K,V>[] table）和链表结合组成的复合结构，
 ``` java
 public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable {
@@ -187,17 +184,28 @@ HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到�
 ![img](https://awps-assets.meituan.net/mit-x/blog-images-bundle-2016/3cc9813a.png)
 
 #### 2.4.2 LinkedHashMap
- LinkedHashMap 和 TreeMap 都可以保证某种顺序，但二者还是非常不同的，LinkedHashMap 通常提供的是遍历顺序符合插入顺序，它的实现是通过为条目（键值对）维护一个双向链表。注意，通过特定构造函数，我们可以创建反映访问顺序的实例，所谓的 put、get、compute 等，都算作“访问”。
+LinkedHashMap 和 TreeMap 都可以保证某种顺序，但二者还是非常不同的，LinkedHashMap 通常提供的是遍历顺序符合插入顺序，它的实现是通过为条目（键值对）维护一个双向链表。
+``` java
+public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V>{
 
+	static class Entry<K,V> extends HashMap.Node<K,V> {
+        Entry<K,V> before, after;
+        Entry(int hash, K key, V value, Node<K,V> next) {
+            super(hash, key, value, next);
+        }
+    }
+ }
+```
+通过源代码我们可以看到LinkedHashMap.Entry是继承了HashMap.Node，增加了 before, after，组成双向连表。LinkedHashMap的有序可以设置成插入顺序和访问顺序，默认是按照插入顺序组成双向连表。通过特定构造函数，将accessOrder设置成true，可以创建反映访问顺序的实例，所谓的 put、get、compute 等，都算作“访问”。
 
-
-
+#### 2.4.3 treeMap
+LinkedHashMap保证数据可以保持插入顺序，或者访问顺序，而如果我们希望Map可以保持key的大小顺序的时候，我们就需要利用TreeMap了。TreeMap的实现是的红黑树，使用红黑树的好处是能够使得树具有不错的平衡性，这样操作的速度就可以达到log(n)的水平。
+红黑树是一种自平衡二叉查找树。它的统计性能要好于平衡二叉树
 
 ### 2.5 线程安全的集合
 Vector、等是线程安全的，除此之外我们完全可以利用类似方法来实现基本的线程安全集合：
 ``` java
 static <T> List<T> synchronizedList(List<T> list)
-
 List list = Collections.synchronizedList(new ArrayList());
 ```
 它的实现，基本就是将每个基本方法，比如 get、set、add 之类，都通过 synchronizd 添加基本的同步支持，非常简单粗暴，但也非常实用。注意这些方法创建的线程安全集合，都符合迭代时 fail-fast[1]行为，当发生意外的并发修改时，尽早抛出 `ConcurrentModificationException` 异常，以避免不可预计的行为。
@@ -250,12 +258,28 @@ List<String> simpleList = List.of("Hello","world");
 
 ## 四、算法
 
-### 4.1 排序算法
+### 4.1 数据结构
+#### 4.1.1 数组
+#### 4.1.2 连表
+#### 4.1.3 树
+树是一种非线性的数据结构，相对于线性的数据结构(链表、数组)而言，树的平均运行时间更短(往往与树相关的排序时间复杂度都不会高)，但是在编程的世界中，我们一般把树**“倒”**过来看，这样容易我们分析。一般的树是有很多很多个分支的，分支下又有很多很多个分支，如果在程序中研究这个会非常麻烦。因为本来树就是非线性的，而我们计算机的内存是线性存储的，太过复杂的话我们无法设计出来。因此，我们一般研究常用的二叉树，也就是每个节点有两个分支的树结构。
 
-#### 4.1.1 双轴快速排序（Dual-Pivot QuickSort）
+树结构包含二叉树、二叉查找树、平衡二叉树、平衡查找树之AVL树、平衡二叉树之红黑树、B树、B+树、B*树、Trie树、等。
+##### 4.1.3.1 二叉树
+* 二叉树：二叉树的每个结点至多只有二棵子树(不存在度大于2的结点)，二叉树的子树有左右之分，次序不能颠倒。二叉树的第i层至多有2的i-1次方个结点；深度为k的二叉树至多有2的k-1次方个结点。
+* 满二叉树和完全二叉树：
+
+
+
+4.1.4 图
+
+
+### 4.2 排序算法
+
+#### 4.2.1 双轴快速排序（Dual-Pivot QuickSort）
 DualPivotQuicksort，该排序算法是不稳定的，即：相等的两个元素在排序前后的相对位置可能会发生变化
 
-#### 4.1.2 TimSort
+#### 4.2.2 TimSort
 思想上也是一种归并和二分插入排序（binarySort）结合的优化排序算法，简单说它的思路是查找数据集中已经排好序的分区（这里叫 run），然后合并这些分区来达到排序的目的。
 
 #### 4.2.3 parallelSort
