@@ -41,7 +41,7 @@ Vector 和 ArrayList 作为动态数组，其内部元素以数组形式顺序�
 
 ### 2.2 Set
 
-Set顶层抽象接口是AbstractSet，实现AbstractSet接口的有，TreeSet，HashSet，LinkedHashSet。Set 是不允许重复元素的，这是和 List 最明显的区别，也就是不存在两个对象 equals 返回 true。我们在日常开发中有很多需要保证元素唯一性的场合。
+Set顶层抽象接口是AbstractSet，实现AbstractSet接口的有，TreeSet，HashSet，LinkedHashSet。Set 是不允许重复元素的，这是和 List 最明显的区别，也就是不存在两个对象 equals 返回 true。我们在日常开发中有很多需要保证元素唯一性的场合。TreeSet 代码里实际默认是利用 TreeMap 实现的，Java 类库创建了一个 Dummy 对象“PRESENT”作为 value，然后所有插入的元素其实是以键的形式放入了 TreeMap 里面；同理，HashSet 其实也是以 HashMap 为基础实现的，原来他们只是 Map 类的马甲！
 
 * TreeSet 支持自然顺序访问，但是添加、删除、包含等操作要相对低效（log(n) 时间）。
 * HashSet 则是利用哈希算法，理想情况下，如果哈希散列正常，可以提供常数时间的添加、删除、包含等操作，但是它不保证有序。
@@ -203,7 +203,7 @@ LinkedHashMap保证数据可以保持插入顺序，或者访问顺序，而如�
 红黑树是一种自平衡二叉查找树。它的统计性能要好于平衡二叉树
 
 ### 2.5 线程安全的集合
-Vector、等是线程安全的，除此之外我们完全可以利用类似方法来实现基本的线程安全集合：
+Vector、Hashtable 、等是线程安全的，除此之外我们完全可以利用类似方法来实现基本的线程安全集合：
 ``` java
 static <T> List<T> synchronizedList(List<T> list)
 List list = Collections.synchronizedList(new ArrayList());
