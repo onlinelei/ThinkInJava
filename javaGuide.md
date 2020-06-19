@@ -21,7 +21,7 @@ Java 的集合框架，Collection 接口是所有集合的根，然后扩展开�
 
 广义 Java 集合框架中还包含Map，HashMap 使用评率很高。
 
-![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200615165653.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200615165653.png" style="zoom:67%;" />
 
 如上图所示每种集合的通用逻辑，都被抽象到相应的抽象类之中，比如 AbstractList 就集中了各种 List 操作的通用部分。这些集合不是完全孤立的，比如，LinkedList 本身，既是 List，也是 Deque 哦。
 
@@ -55,7 +55,7 @@ Queue/Deque，则是 Java 提供的标准队列结构的实现，除了集合的
 ### 2.4 Map
 Map 是广义 Java 集合框架中的另外一部分，Map顶层抽象接口为AbstractMap，实现AbstractMap接口的有，EnumMap、HashMap、TreeMap。Map是以**键值对**的形式存储和操作数据的容器类型。Hashtable例外，它继承了Dictionary类。
 
-![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616105731.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616105731.png" style="zoom:67%;" />
 
 * Hashtable 是早期 Java 类库提供的一个哈希表实现，本身是同步的，不支持 null 键和值，由于同步导致的性能开销，所以已经很少被推荐使用。作为类似 Vector、Stack 的早期集合相关类型，它是扩展了 Dictionary 类的，类结构上与 HashMap 之类明显不同。
 * HashMap 是应用更加广泛的哈希表实现，行为上大致上与 HashTable 一致，主要区别在于 HashMap 不是同步的，支持 null 键和值等。通常情况下，HashMap 进行 put 或者 get 操作，可以达到常数时间的性能，所以**它是绝大部分利用键值对存取场景的首选**，比如，实现一个用户 ID 和用户信息对应的运行时存储结构。
@@ -111,7 +111,7 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
 ```
 数组被分为一个个桶（bucket），通过哈希值决定了键值对在这个数组的寻址；哈希值相同的键值对，则以链表形式存储，最后放入的对象会被放置在连表头节点，是因为HashMap的发明者认为，**后插入的Entry被查找的可能性更大**，你可以参考上面的HashMap源码。这里需要注意的是，如果链表大小超过阈值（TREEIFY_THRESHOLD, 8），链表就会被改造为树形结构，当连表长度小于或者等于阈值（UNTREEIFY_THRESHOLD，6），树形结构就会变成连表结构。那么，为什么 HashMap 要树化呢？本质上这是个安全问题。因为在元素放置过程中，如果一个对象哈希冲突，都被放置到同一个桶里，则会形成一个链表，我们知道链表查询是线性的，会严重影响存取的性能。
 
-![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616151815.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616151815.png" style="zoom:67%;" />
 
 观察HashMap 的源码我们发现存对象的数组`Node<K,V>[] table;`被关键字`transient`修饰，所以当HashMap对象被序列化的时候table字段是没有被序列化的。着有点不符合逻辑，真正存放了数据的数组没有呗序列化，其实在序列化和反序列化的时候，java虚拟机会利用反射的方式调用HashMap中的私有方法`writeObject()`和`readObject()`，来读取和写入到`Node<K,V>[] table;`这样只序列化实际存储元素的数组。引用这种方式序列化是由于不同的虚拟机对于相同 hashCode 产生的 Code 值可能是不一样的，所以反序列化的话的过程也需要在当时的环境中重新构造出完整的对象。
 
@@ -169,7 +169,7 @@ static int indexFor(int h, int length) {  //jdk1.7的源码，jdk1.8没有这个
 
 HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到该对象的保存位，而HashMap底层数组的长度总是2的n次方，这是HashMap在速度上的优化。当length总是2的n次方时，`h & (length-1)`运算等价于对length取模，也就是`h % length`，但是&比%具有更高的效率。在JDK1.8的实现中，优化了高位运算的算法，通过`hashCode()`的高16位异或低16位实现的：`(h = k.hashCode()) ^ (h >>> 16)`，主要是从速度、功效、质量来考虑的，这么做可以在当数组table的length比较小的时候，也能保证考虑到高低Bit都参与到Hash的计算中，同时不会有太大的开销。
 
-![hash](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617143427.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617143427.png" alt="hash" style="zoom:67%;" />
 
 而且当HashMap扩容的时候，我们使用的是2次幂的扩展(指长度扩为原来2倍)，所以，元素的位置要么是在原位置，要么是在原位置再移动2次幂的位置。看下图可以明白这句话的意思，n为table的长度，左侧表示扩容前的key1和key2两种key确定索引位置的示例，右侧表示扩容后key1和key2两种key确定索引位置的示例，其中hash1是key1对应的哈希与高位运算结果。
 
@@ -181,7 +181,7 @@ HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到�
 
 因此，我们在扩充HashMap的时候，不需要像JDK1.7的实现那样重新计算hash，只需要看看原来的hash值新增的那个bit是1还是0就好了，是0的话索引没变，是1的话索引变成“原索引+oldCap”，可以看看下图为16扩充为32的resize示意图：
 
-![img](https://awps-assets.meituan.net/mit-x/blog-images-bundle-2016/3cc9813a.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617145738.png" style="zoom:50%;" />
 
 #### 2.4.2 LinkedHashMap
 LinkedHashMap 和 TreeMap 都可以保证某种顺序，但二者还是非常不同的，LinkedHashMap 通常提供的是遍历顺序符合插入顺序，它的实现是通过为条目（键值对）维护一个双向链表。
@@ -210,7 +210,16 @@ List list = Collections.synchronizedList(new ArrayList());
 ```
 它的实现，基本就是将每个基本方法，比如 get、set、add 之类，都通过 synchronizd 添加基本的同步支持，非常简单粗暴，但也非常实用。注意这些方法创建的线程安全集合，都符合迭代时 fail-fast[1]行为，当发生意外的并发修改时，尽早抛出 `ConcurrentModificationException` 异常，以避免不可预计的行为。
 
-或者我在`java.util.concurrent`里面的线程安全容器，TODO
+或者我在`java.util.concurrent`里面的线程安全容器，
+
+![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200619115153.png)
+
+
+
+
+
+Java 提供了不同层面的线程安全支持。在传统集合框架内部，除了 Hashtable 等同步容器，还提供了所谓的同步包装器（Synchronized Wrapper），我们可以调用 Collections 工具类提供的包装方法，来获取一个同步的包装容器（如 Collections.synchronizedMap），但是它们都是利用非常粗粒度的同步方式，在高并发情况下，性能比较低下。
+
 
 ### 2.6 集合排序
 * 对于原始数据类型，目前使用的是所谓双轴快速排序（Dual-Pivot QuickSort），是一种改进的快速排序算法，早期版本是相对传统的快速排序，该算法是不稳定的。
@@ -283,7 +292,7 @@ AVL树定义：AVL树是最先发明的**自平衡二叉查找树**。AVL树得�
 * 每个红色节点必须有两个黑色的子节点。(从每个叶子到根的所有路径上不能有两个连续的红色节点。)
 * 从任一节点到其每个叶子的所有简单路径都包含相同数目的黑色节点。
 
-![An example of a red-black tree](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618175807.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618175807.png" alt="An example of a red-black tree" style="zoom:67%;" />
 
 ##### 4.1.3.5 B树
 B树的定义：B树（B-tree）是一种树状数据结构，能够用来存储排序后的数据，它也是平衡树，但是它不是二叉树。这种数据结构能够让查找数据、循序存取、插入数据及删除的动作，都在对数时间内完成。B树，概括来说是一个一般化的二叉查找树，可以拥有多于2个子节点。与自平衡二叉查找树不同，B-树为系统最优化大块数据的读和写操作。B-tree算法减少定位记录时所经历的中间过程，从而加快存取速度。这种数据结构常被应用在数据库和文件系统的实作上。B树作为一种多路搜索树，它有以下性质：
@@ -375,7 +384,7 @@ private void fastRemove(int index) {
 
 画一张图理解一下
 
-![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618185354.png)
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618185354.png" style="zoom:67%;" />
 
 所以，在使用Java的集合类的时候，如果发生CMException，优先考虑fail-fast有关的情况，实际上这里并没有真的发生并发，只是Iterator使用了fail-fast的保护机制，只要他发现有某一次修改是未经过自己进行的，那么就会抛出异常。
 
