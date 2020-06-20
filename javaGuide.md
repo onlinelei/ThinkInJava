@@ -15,11 +15,11 @@ Java 本身是一种面向对象的语言，最显著的特性有两个方面，
 
 Java 的集合框架，Collection 接口是所有集合的根，然后扩展开提供了三大类集合，分别是：
 
-* List，也就是我们前面介绍最多的有序集合，它提供了方便的访问、插入、删除等操作。
+* List，也就是我们用的最多的有序集合，它提供了方便的访问、插入、删除等操作。
 * Set，Set 是不允许重复元素的，这是和 List 最明显的区别，也就是不存在两个对象 equals 返回 true。用在保证元素唯一性场合。
 * Queue/Deque，则是 Java 提供的标准队列结构的实现，除了集合的基本功能，它还支持类似先入先出（FIFO， First-in-First-Out）或者后入先出（LIFO，Last-In-First-Out）等特定行为。这里不包括 BlockingQueue，因为通常是并发编程场合，所以被放置在并发包里。
 
-广义 Java 集合框架中还包含Map，HashMap 使用评率很高。
+广义 Java 集合框架中还包含Map，HashMap 使用频率很高。
 
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200615165653.png" style="zoom:67%;" />
 
@@ -67,13 +67,13 @@ HashMap 的性能表现非常依赖于哈希码的有效性，hashCode 和 equal
 * 重写了 hashCode 也要重写 equals。
 * hashCode 需要保持一致性，状态改变返回的哈希值仍然要一致。
 * equals 的对称、反射、传递等特性。
-
+##### 2.4.1.1 解决冲突的方法
 HashMap采用的链表法的方式，链表是单向链表。其他解决hash冲突的方法还有开放地址法，当冲突发生时，使用某种探查技术在散列表中形成一个探查(测)序列。沿此序列逐个单元地查找，直到找到给定的地址。按照形成探查序列的方法不同，可将开放定址法区分为线性探查法、二次探查法、双重散列法等。开放定址法公式为：`H i ( key ) = ( H ( key )+ d i ) mod m ( i = 1,2,…… ， k ( k ≤ m – 1)) `根据di的变化不通可以分为下面三种散列方式：
 1. d i ＝ 1 ， 2 ， 3 ， …… 线性探测再散列；
 2. d i ＝ 1^2 ，－ 1^2 ， 2^2 ，－ 2^2 ， k^2， -k^2…… 二次探测再散列；
 3. d i ＝ 伪随机序列 伪随机再散列； 
 
-通过源码我们来一起看看 HashMap 内部的结构，它可以看作是数组（Node<K,V>[] table）和链表结合组成的复合结构，
+##### 2.4.1.2 HashMap结构
 ``` java
 public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable {
 
@@ -109,12 +109,13 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
     }
 }
 ```
-数组被分为一个个桶（bucket），通过哈希值决定了键值对在这个数组的寻址；哈希值相同的键值对，则以链表形式存储，最后放入的对象会被放置在连表头节点，是因为HashMap的发明者认为，**后插入的Entry被查找的可能性更大**，你可以参考上面的HashMap源码。这里需要注意的是，如果链表大小超过阈值（TREEIFY_THRESHOLD, 8），链表就会被改造为树形结构，当连表长度小于或者等于阈值（UNTREEIFY_THRESHOLD，6），树形结构就会变成连表结构。那么，为什么 HashMap 要树化呢？本质上这是个安全问题。因为在元素放置过程中，如果一个对象哈希冲突，都被放置到同一个桶里，则会形成一个链表，我们知道链表查询是线性的，会严重影响存取的性能。
+通过源码我们来一起看看 HashMap 内部的结构，它可以看作是数组（Node<K,V>[] table）和链表结合组成的复合结构，数组被分为一个个桶（bucket），通过哈希值决定了键值对在这个数组的寻址；哈希值相同的键值对，则以单向链表形式存储，最后放入的对象会被放置在连表头节点，是因为HashMap的发明者认为，**后插入的Entry被查找的可能性更大**。这里需要注意的是，如果链表大小超过阈值（TREEIFY_THRESHOLD, 8），链表就会被改造为树形结构，当连表长度小于或者等于阈值（UNTREEIFY_THRESHOLD，6），树形结构就会变成连表结构。那么，为什么 HashMap 要树化呢？本质上这是个安全问题。因为在元素放置过程中，如果一个对象哈希冲突，都被放置到同一个桶里，则会形成一个链表，我们知道链表查询是线性的，会严重影响存取的性能。
 
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616151815.png" style="zoom:67%;" />
 
-观察HashMap 的源码我们发现存对象的数组`Node<K,V>[] table;`被关键字`transient`修饰，所以当HashMap对象被序列化的时候table字段是没有被序列化的。着有点不符合逻辑，真正存放了数据的数组没有呗序列化，其实在序列化和反序列化的时候，java虚拟机会利用反射的方式调用HashMap中的私有方法`writeObject()`和`readObject()`，来读取和写入到`Node<K,V>[] table;`这样只序列化实际存储元素的数组。引用这种方式序列化是由于不同的虚拟机对于相同 hashCode 产生的 Code 值可能是不一样的，所以反序列化的话的过程也需要在当时的环境中重新构造出完整的对象。
+观察HashMap 的源码我们发现存对象的数组`Node<K,V>[] table;`被关键字`transient`修饰，所以当HashMap对象被序列化的时候table字段是没有被序列化的。这有点不符合逻辑，真正存放了数据的数组没有呗序列化？其实在序列化和反序列化的时候，java虚拟机会利用反射的方式调用HashMap中的私有方法`writeObject()`和`readObject()`，来读取和写入`Node<K,V>[] table;`只序列化实际存储元素的数组。引用这种方式序列化是由于不同的虚拟机对于相同 hashCode 产生的 Code 值可能是不一样的，所以反序列化的话的过程也需要在当时的环境中重新计算位置。
 
+##### 2.4.1.2 put(); 方法
 HashTable是使用了 lazy-load（懒加载）的方式实现，它的初始化和扩容都是在调用`put()`方法时完成，我们看下源码：
 ``` java
 /* ---------------- Constructor -------------- */
@@ -149,7 +150,6 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbent,
 * resize 方法兼顾两个职责，创建初始存储表格，或者在容量不满足需求的时候，进行扩容（resize）。
 * 放置新的键值对的过程中，如果长度超过threshold （`threshold = length * Load factor`），就会发生扩容，新的容量是原有容量的2倍，默认的负载因子0.75是对空间和时间效率的一个平衡选择，建议大家不要修改，除非在时间和空间比较特殊的情况下，如果内存空间很多而又对时间效率要求很高，可以降低负载因子Load factor的值；相反，如果内存空间紧张而对时间效率要求不高，可以增加负载因子loadFactor的值，这个值可以大于1。
 
-仔细观察哈希值的源头，我们会发现，它并不是 key 本身的 hashCode，而是来自于 HashMap 内部的另外一个 hash 方法。注意，为什么这里需要将高位数据移位到低位进行异或运算呢？**这是因为有些数据计算出的哈希值差异主要在高位，而 HashMap 里的哈希寻址是忽略容量以上的高位的，那么这种处理就可以有效避免类似情况下的哈希碰撞。**
 ``` java
 /* ---------------- Method 1 -------------- */
 static final int hash(Object key) {   //jdk1.8 & jdk1.7
@@ -167,7 +167,11 @@ static int indexFor(int h, int length) {  //jdk1.7的源码，jdk1.8没有这个
 
 在HashMap中，哈希桶数组table的长度length大小必须为2的n次方(一定是合数)，这是一种非常规的设计，主要是为了在取模和扩容时做优化，同时为了减少冲突，HashMap定位哈希桶索引位置时，也加入了高位参与运算的过程。
 
-HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到该对象的保存位，而HashMap底层数组的长度总是2的n次方，这是HashMap在速度上的优化。当length总是2的n次方时，`h & (length-1)`运算等价于对length取模，也就是`h % length`，但是&比%具有更高的效率。在JDK1.8的实现中，优化了高位运算的算法，通过`hashCode()`的高16位异或低16位实现的：`(h = k.hashCode()) ^ (h >>> 16)`，主要是从速度、功效、质量来考虑的，这么做可以在当数组table的length比较小的时候，也能保证考虑到高低Bit都参与到Hash的计算中，同时不会有太大的开销。
+仔细观察哈希值的源头，我们会发现，它并不是 key 本身的 hashCode，而是来自于 HashMap 内部的另外一个 hash 方法。注意，为什么这里需要将高位数据移位到低位进行异或运算呢？**这是因为有些数据计算出的哈希值差异主要在高位，而 HashMap 里的哈希寻址是忽略容量以上的高位的，那么这种处理就可以有效避免类似情况下的哈希碰撞。**
+
+在JDK1.8的实现中，优化了高位运算的算法，通过`hashCode()`的高16位异或低16位实现的：`(h = k.hashCode()) ^ (h >>> 16)`，主要是从速度、功效、质量来考虑的，这么做可以在当数组table的length比较小的时候，也能保证考虑到高低Bit都参与到Hash的计算中，同时不会有太大的开销。
+
+HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到该对象的保存位，而HashMap底层数组的长度总是2的n次方，这是HashMap在速度上的优化。当length总是2的n次方时，`h & (length-1)`运算等价于对length取模，也就是`h % length`，但是&比%具有更高的效率。
 
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617143427.png" alt="hash" style="zoom:67%;" />
 
@@ -184,7 +188,7 @@ HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到�
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617145738.png" style="zoom:50%;" />
 
 #### 2.4.2 LinkedHashMap
-LinkedHashMap 和 TreeMap 都可以保证某种顺序，但二者还是非常不同的，LinkedHashMap 通常提供的是遍历顺序符合插入顺序，它的实现是通过为条目（键值对）维护一个双向链表。
+LinkedHashMap 和 TreeMap 都可以保证某种顺序，但二者还是非常不同的，LinkedHashMap 通常提供的是遍历顺序符或插入顺序，它的实现是通过为条目（键值对）维护一个双向链表。
 ``` java
 public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V>{
 
@@ -196,14 +200,14 @@ public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V>{
     }
  }
 ```
-通过源代码我们可以看到LinkedHashMap.Entry是继承了HashMap.Node，增加了 before, after，组成双向连表。LinkedHashMap的有序可以设置成插入顺序和访问顺序，默认是按照插入顺序组成双向连表。通过特定构造函数，将accessOrder设置成true，可以创建反映访问顺序的实例，所谓的 put、get、compute 等，都算作“访问”。
+通过源代码我们可以看到LinkedHashMap.Entry是继承了HashMap.Node，增加了 before, after，组成双向连表。LinkedHashMap的有序可以设置成插入顺序或访问顺序，默认是按照插入顺序组成双向链表。通过特定构造函数，将accessOrder设置成true，可以创建反映访问顺序的链表，所谓的 put、get、compute 等，都算作“访问”。
 
 #### 2.4.3 treeMap
 LinkedHashMap保证数据可以保持插入顺序，或者访问顺序，而如果我们希望Map可以保持key的大小顺序的时候，我们就需要利用TreeMap了。TreeMap的实现是的红黑树，使用红黑树的好处是能够使得树具有不错的平衡性，这样操作的速度就可以达到log(n)的水平。
 红黑树是一种自平衡二叉查找树。它的统计性能要好于平衡二叉树
 
 ### 2.5 线程安全的集合
-Vector、Hashtable 、等是线程安全的，除此之外我们完全可以利用类似方法来实现基本的线程安全集合：
+Vector、Hashtable 、等是线程安全的集合，除此之外我们完全可以利用类似方法来实现基本的线程安全集合：
 ``` java
 static <T> List<T> synchronizedList(List<T> list)
 List list = Collections.synchronizedList(new ArrayList());
@@ -213,10 +217,6 @@ List list = Collections.synchronizedList(new ArrayList());
 或者我在`java.util.concurrent`里面的线程安全容器，
 
 ![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200619115153.png)
-
-
-
-
 
 Java 提供了不同层面的线程安全支持。在传统集合框架内部，除了 Hashtable 等同步容器，还提供了所谓的同步包装器（Synchronized Wrapper），我们可以调用 Collections 工具类提供的包装方法，来获取一个同步的包装容器（如 Collections.synchronizedMap），但是它们都是利用非常粗粒度的同步方式，在高并发情况下，性能比较低下。
 
@@ -260,7 +260,7 @@ List<String> simpleList = List.of("Hello","world");
 #### 4.1.1 数组
 #### 4.1.2 连表
 #### 4.1.3 树
-树是一种非线性的数据结构，相对于线性的数据结构(链表、数组)而言，树的平均运行时间更短(往往与树相关的排序时间复杂度都不会高)，但是在编程的世界中，我们一般把树**“倒”**过来看，这样容易我们分析。一般的树是有很多很多个分支的，分支下又有很多很多个分支，如果在程序中研究这个会非常麻烦。因为本来树就是非线性的，而我们计算机的内存是线性存储的，太过复杂的话我们无法设计出来。因此，我们一般研究常用的二叉树，也就是每个节点有两个分支的树结构。
+树是一种非线性的数据结构，相对于线性的数据结构(链表、数组)而言，树的平均运行时间更短(往往与树相关的排序时间复杂度都不会高)，但是在编程的世界中，我们一般把树**“倒”**过来看，这样容易我们分析。一般的树是有很多很多个分支的，分支下又有很多很多个分支，如果在程序中研究这个会非常麻烦。因为本来树就是非线性的，而我们计算机的内存是线性存储的，太过复杂的话我们无法设计出来。因此，我们一般研究常用二叉树，也就是每个节点有两个分支的树结构。
 
 树结构包含二叉树、二叉查找树、平衡二叉树、平衡查找树之AVL树、平衡二叉树之红黑树、B树、B+树、B*树、Trie树、等。
 ##### 4.1.3.1 二叉树
@@ -332,11 +332,15 @@ B+树的性质：
 
 ![img](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618183522.gif)
 
-##### 4.1.3.6 B*树
+##### 4.1.3.7 B*树
 B*树是B+树的变体，在B+树的非根和非叶子结点再增加指向兄弟的指针，将结点的最低利用率从1/2提高到2/3。B*树定义了非叶子结点关键字个数至少为(2/3)*M，即块的最低使用率为2/3（代替B+树的1/2）；
 B+树的分裂：当一个结点满时，分配一个新的结点，并将原结点中1/2的数据复制到新结点，最后在父结点中增加新结点的指针；B+树的分裂只影响原结点和父结点，而不会影响兄弟结点，所以它不需要指向兄弟的指针；
 B*树的分裂：当一个结点满时，如果它的下一个兄弟结点未满，那么将一部分数据移到兄弟结点中，再在原结点插入关键字，最后修改父结点中兄弟结点的关键字（因为兄弟结点的关键字范围改变了）；如果兄弟也满了，则在原结点与兄弟结点之间增加新结点，并各复制1/3的数据到新结点，最后在父结点增加新结点的指针；
 所以，B*树分配新结点的概率比B+树要低，空间使用率更高。
+
+##### 4.1.3.7 Trie树
+
+#### 4.1.4 图
 
 
 ### 4.2 排序算法
@@ -353,7 +357,7 @@ DualPivotQuicksort，该排序算法是不稳定的，即：相等的两个元�
 
 ## 名词解释
 
-### 1. ffail-fast
+### 1. fail-fast
 在系统设计中，快速失效系统一种可以立即报告任何可能表明故障的情况的系统。快速失效系统通常设计用于停止正常操作，而不是试图继续可能存在缺陷的过程。这种设计通常会在操作中的多个点检查系统的状态，因此可以及早检测到任何故障。快速失败模块的职责是检测错误，然后让系统的下一个最高级别处理错误。
 ``` java
 for (String userName : userNames) {
