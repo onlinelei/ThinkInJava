@@ -1,4 +1,4 @@
-## 一、java基础
+# 一、java基础
 
 Java 本身是一种面向对象的语言，最显著的特性有两个方面，一是所谓的“书写一次，到处运行”（Write once, run anywhere），能够非常容易地获得跨平台能力；另外就是垃圾收集（GC, Garbage Collection），Java 通过垃圾收集器（Garbage Collector）回收分配内存，大部分情况下，程序员不需要自己操心内存的分配和回收。
 
@@ -212,9 +212,8 @@ Vector、Hashtable 、等是线程安全的集合，除此之外我们完全可�
 static <T> List<T> synchronizedList(List<T> list)
 List list = Collections.synchronizedList(new ArrayList());
 ```
-它的实现，基本就是将每个基本方法，比如 get、set、add 之类，都通过 synchronizd 添加基本的同步支持，非常简单粗暴，但也非常实用。注意这些方法创建的线程安全集合，都符合迭代时 fail-fast[1]行为，当发生意外的并发修改时，尽早抛出 `ConcurrentModificationException` 异常，以避免不可预计的行为。
+它的实现，基本就是将每个基本方法，比如 get、set、add 之类，都通过 synchronizd 添加基本的**同步**支持，非常简单粗暴，但也非常实用。注意这些方法创建的线程安全集合，都符合迭代时 fail-fast[1]行为，当发生意外的并发修改时，尽早抛出 `ConcurrentModificationException` 异常，以避免不可预计的行为。
 #### 2.5.1 synchronizd原理
-java中synchronized关键字可以修饰语句块、方法，实现关键方法和语句块的线程同步功能。
 ``` java
 public class SyncTest {
     public void syncBlock(){
@@ -254,8 +253,7 @@ public class SyncTest {
          from    to  target type
              4    14    17   any
             17    20    17   any
- 
-
+           
   public synchronized void syncMethod();
     descriptor: ()V
     flags: ACC_PUBLIC, ACC_SYNCHRONIZED      //添加了ACC_SYNCHRONIZED标记
@@ -265,14 +263,11 @@ public class SyncTest {
          3: ldc           #5                  // String hello method
          5: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
          8: return
- 
 }
 ```
-从上面的中文注释处可以看到，对于synchronized关键字修饰语句块而言，javac在编译时，会生成对应的monitorenter和monitorexit指令分别对应synchronized同步块的进入和退出，有两个monitorexit指令的原因是：为了保证抛异常的情况下也能释放锁，所以javac为同步代码块添加了一个隐式的try-finally，在finally中会调用monitorexit命令释放锁。monitorenter，monitorexit指令主要是获取和释放监视器锁，而且在java中每个对象都关联一个监视器，
+synchronized修饰语句块：javac在编译时，会方法块的进入和退出时生成monitorenter和monitorexit指令，有两个monitorexit指令的原因是为了保证抛异常的情况下也能释放锁，所以javac为同步代码块添加了一个隐式的try-finally，在finally中会调用monitorexit命令释放锁。monitorenter，monitorexit指令主要是获取和释放监视器锁，而且在java中每个对象都关联一个监视器。如果monitor没有被任何线程获取，那么当前线程获取这个monitor，把monitor的entry count设置为1，表示这个monitor被1个线程占用了，该线程再次进入时会将entry count再次+1，执行monitorexit指令时将entry count循环-1直到entry count变为0释放monitor，其他线程想要进入同步代码块，需要等到entry count为0时获得monitor才能进入。当前线程获取了monitor之后，会增加这个monitor的时间计数，来记录当前线程占用了monitor多长时间。
 
-
-
-synchronized修饰方法时，javac为其生成了一个ACC_SYNCHRONIZED关键字，在JVM进行方法调用时，发现调用的方法被ACC_SYNCHRONIZED修饰，则会先尝试获得锁。
+synchronized修饰方法：javac为其生成了一个ACC_SYNCHRONIZED关键字，在JVM进行方法调用时，检查该方法在常量池中是否包含 ACC_SYNCHRONIZED 标记符，如果有，JVM 要求线程在调用之前请求锁
 
 
 #### 2.5.2 java.util.concurrent
