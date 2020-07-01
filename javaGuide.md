@@ -242,23 +242,18 @@ synchronized修饰方法：javac为其生成了一个ACC_SYNCHRONIZED关键字�
 #### 2.5.2 java.util.concurrent
 java.util.concurrent 包含许多线程安全、高性能的并发构建块。不客气地说，创建 java.util.concurrent 的目的就是要实现 Collection 框架对数据结构所执行的并发操作。通过提供一组可靠的、高性能并发构建块，开发人员可以提高并发类的线程安全、可伸缩性、性能、可读性和可靠性。下图看下`java.util.concurrent`里面的线程安全容器。
 
-![](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200619115153.png)
+![img](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200619115153.png)
 
-Java 语言包括用于协调线程行为的原语，从而可以在不违反设计原型或者不破坏数据结构的前提下安全地访问和修改共享变量。
+Java 语言包括用于协调线程行为的原语，从而可以在不违反设计原型或者不破坏数据结构的前提下安全地访问和修改共享变量。关于current包[详细介绍](https://www.cnblogs.com/sarafill/archive/2011/05/18/2049461.html)
 
 ##### 2.5.2.1 ConcurrentHashMap
-ConcurrentHashMap 的设计实现其实一直在演化，早期 ConcurrentHashMap，其实现是基于分离锁，也就是将内部进行分段（Segment），里面则是 HashEntry 的数组，和 HashMap 类似，哈希相同的条目也是以链表形式存放。HashEntry 内部使用 volatile 的 value 字段来保证可见性，也利用了不可变对象的机制以改进利用 Unsafe [2]提供的底层能力，比如 volatile access，去直接完成部分操作，以最优化性能，毕竟 Unsafe 中的很多操作都是 JVM intrinsic 优化过的。其核心是利用分段设计，在进行并发操作的时候，只需要锁定相应段，这样就有效避免了类似 Hashtable 整体同步的问题，大大提高了性能。
+ConcurrentHashMap 的设计实现其实一直在演化，早期 ConcurrentHashMap，其实现是基于分离锁，也就是将内部进行分段（Segment），里面则是 HashEntry 的数组，和 HashMap 类似，哈希相同的条目也是以链表形式存放。HashEntry 内部使用 volatile 的 value 字段来保证可见性，也利用了不可变对象的机制以改进利用 Unsafe [2]提供的底层能力，比如 volatile access，去直接完成部分操作，以最优化性能，毕竟 Unsafe 中的很多操作都是 JVM intrinsic 优化过的。其核心是利用分段设计，在进行并发操作的时候，只需要锁定相应段，这样就有效避免了类似 Hashtable 整体同步的问题，大大提高了性能。在构造的时候，Segment 的数量由所谓的 concurrentcyLevel 决定，默认是 16，也可以在相应构造函数直接指定。注意，Java 需要它是 2 的幂数值，如果输入是类似 15 这种非幂值，会被自动调整到 16 之类 2 的幂数值。
 
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200622192401.png" style="zoom:50%;" />
 
+在进行并发写操作时ConcurrentHashMap 会获取再入锁，以保证数据一致性，Segment 本身就是基于 ReentrantLock 的扩展实现，所以，在并发修改期间，相应 Segment 是被锁定的。在最初阶段，进行重复性的扫描，以确定相应 key 值是否已经在数组里面，进而决定是更新还是放置操作，重复扫描、检测冲突是 ConcurrentHashMap 的常见技巧。ConcurrentHashMap 在扩容时它进行的不是整体的扩容，而是单独对 Segment 进行扩容
 
-
-总体结构上，它的内部存储变得和HashMap 结构非常相似，同样是大的桶（bucket）数组，然后内部也是一个个所谓的链表结构（bin），同步的粒度要更细致一些。
-其内部仍然有 Segment 定义，但仅仅是为了保证序列化时的兼容性而已，不再有任何结构上的用处。
-因为不再使用 Segment，初始化操作大大简化，修改为 lazy-load 形式，这样可以有效避免初始开销，解决了老版本很多人抱怨的这一点。
-数据存储利用 volatile 来保证可见性。
-使用 CAS 等操作，在特定场景进行无锁并发操作。
-使用 Unsafe、LongAdder 之类底层手段，进行极端情况的优化。
+在 Java 8 和之后的版本中ConcurrentHashMap总体结构上，它的内部存储变得和HashMap 结构非常相似，同样是大的桶（bucket）数组，然后内部也是一个个所谓的链表结构（bin），同步的粒度要更细致一些。其内部仍然有 Segment 定义，但仅仅是为了保证序列化时的兼容性而已，不再有任何结构上的用处。因为不再使用 Segment，初始化操作大大简化，修改为 lazy-load 形式，这样可以有效避免初始开销，解决了老版本很多人抱怨的这一点。数据存储利用 volatile 来保证可见性。使用 CAS 等操作，在特定场景进行无锁并发操作。使用 Unsafe、LongAdder 之类底层手段，进行极端情况的优化。
 
 ### 2.6 集合排序
 * 对于原始数据类型，目前使用的是所谓双轴快速排序（Dual-Pivot QuickSort），是一种改进的快速排序算法，早期版本是相对传统的快速排序，该算法是不稳定的。
@@ -303,6 +298,18 @@ List<String> simpleList = List.of("Hello","world");
 * 6.0 中的 Phasers 等
 * 7.0 中的 Fork/Join 框架
 * 8.0 中的 Lambda
+
+### 3.2 IO
+
+Java IO 方式有很多种，基于不同的 IO 抽象模型和交互方式，可以进行简单区分。首先，传统的 java.io 包，它基于流模型实现，提供了我们最熟知的一些 IO 功能，比如 File 抽象、输入输出流等。交互方式是同步、阻塞的方式，也就是说，在读取输入流或者写入输出流时，在读、写动作完成之前，线程会一直阻塞在那里，它们之间的调用是可靠的线性顺序。
+java.io 包的好处是代码比较简单、直观，缺点则是 IO 效率和扩展性存在局限性，容易成为应用性能的瓶颈。
+很多时候，人们也把 java.net 下面提供的部分网络 API，比如 Socket、ServerSocket、HttpURLConnection 也归类到同步阻塞 IO 类库，因为网络通信同样是 IO 行为。
+
+第二，在 Java 1.4 中引入了 NIO 框架（java.nio 包），提供了 Channel、Selector、Buffer 等新的抽象，可以构建多路复用的、同步非阻塞 IO 程序，同时提供了更接近操作系统底层的高性能数据操作方式。
+
+第三，在 Java 7 中，NIO 有了进一步的改进，也就是 NIO 2，引入了异步非阻塞 IO 方式，也有很多人叫它 AIO（Asynchronous IO）。异步 IO 操作基于事件和回调机制，可以简单理解为，应用操作直接返回，而不会阻塞在那里，当后台处理完成，操作系统会通知相应线程进行后续工作。
+
+
 
 ## 四、算法
 
@@ -363,7 +370,7 @@ B树的定义：B树（B-tree）是一种树状数据结构，能够用来存储
 
 * 有叶子结点位于同一层；
 
-  ![img](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618182052.gif)
+![img](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618182052.gif)
 
 
 在B树中查找给定关键字的方法是，首先把根结点取来，在根结点所包含的关键字K1,…,Kn查找给定的关键字（可用顺序查找或二分查找法），若找到等于给定值的关键字，则查找成功；否则，一定可以确定要查找的关键字在Ki与Ki+1之间，Pi为指向子树根节点的指针，此时取指针Pi所指的结点继续查找，直至找到，或指针Pi为空时查找失败。
