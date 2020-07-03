@@ -1,4 +1,4 @@
-# 一、java基础
+# 一、java
 
 Java 本身是一种面向对象的语言，最显著的特性有两个方面，一是所谓的“书写一次，到处运行”（Write once, run anywhere），能够非常容易地获得跨平台能力；另外就是垃圾收集（GC, Garbage Collection），Java 通过垃圾收集器（Garbage Collector）回收分配内存，大部分情况下，程序员不需要自己操心内存的分配和回收。
 
@@ -304,13 +304,164 @@ List list = Collections.synchronizedList(new ArrayList());
 ```
 它的实现，基本就是将每个基本方法，比如 get、set、add 之类，都通过 synchronizd 添加基本的**同步**支持，非常简单粗暴，但也非常实用。注意这些方法创建的线程安全集合，都符合迭代时 fail-fast[1]行为，当发生意外的并发修改时，尽早抛出 `ConcurrentModificationException` 异常，以避免不可预计的行为。
 #### 2.5.2 java.util.concurrent
-java.util.concurrent 包含许多线程安全、高性能的并发构建块。不客气地说，创建 java.util.concurrent 的目的就是要实现 Collection 框架对数据结构所执行的并发操作。通过提供一组可靠的、高性能并发构建块，开发人员可以提高并发类的线程安全、可伸缩性、性能、可读性和可靠性。下图看下`java.util.concurrent`里面的线程安全容器。
+java.util.concurrent 包含许多线程安全、高性能的并发构建块。不客气地说，创建 java.util.concurrent 的目的就是要实现 Collection 框架对数据结构所执行的并发操作。通过提供一组可靠的、高性能并发构建块，开发人员可以提高并发类的线程安全、可伸缩性、性能、可读性和可靠性。
+java.util.concurrent 及其子包，集中了 Java 并发的各种基础工具类，具体主要包括几个方面：
+* 提供了比 synchronized 更加高级的各种同步结构，包括 CountDownLatch、CyclicBarrier、Semaphore 等，可以实现更加丰富的多线程操作，比如利用 Semaphore 作为资源控制器，限制同时进行工作的线程数量。
+* 各种线程安全的容器，比如最常见的 ConcurrentHashMap、有序的 ConcunrrentSkipListMap，或者通过类似快照机制，实现线程安全的动态数组 CopyOnWriteArrayList 等。
+* 各种并发队列实现，如各种 BlockedQueue 实现，比较典型的 ArrayBlockingQueue、 SynchorousQueue 或针对特定场景的 PriorityBlockingQueue 等。
+* 强大的 Executor 框架，可以创建各种不同类型的线程池，调度任务运行等，绝大部分情况下，不再需要自己从头实现线程池和任务调度器。
 
-![img](https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200619115153.png)
+java.util.concurrent 包提供的容器（Queue、List、Set）、Map，从命名上可以大概区分为 ConcurrentXX、CopyOnWriteXX和 BlockingXX等三类，同样是线程安全容器，可以简单认为：
 
-Java 语言包括用于协调线程行为的原语，从而可以在不违反设计原型或者不破坏数据结构的前提下安全地访问和修改共享变量。关于current包[详细介绍](https://www.cnblogs.com/sarafill/archive/2011/05/18/2049461.html)
+Concurrent 类型没有类似 CopyOnWrite 之类容器相对较重的修改开销。但是，凡事都是有代价的，Concurrent 往往提供了较低的遍历一致性。你可以这样理解所谓的弱一致性，例如，当利用迭代器遍历时，如果容器发生修改，迭代器仍然可以继续进行遍历。与弱一致性对应的，就是我介绍过的同步容器常见的行为“fail-fast”，也就是检测到容器在遍历过程中发生了修改，则抛出 ConcurrentModificationException，不再继续遍历。弱一致性的另外一个体现是，size 等操作准确性是有限的，未必是 100% 准确。与此同时，读取的性能具有一定的不确定性。
 
-##### 2.5.2.1 ConcurrentHashMap
+并发包里提供的线程安全 Map、List 和 Set。请参考下面的类图。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703164048.png" style="zoom:67%;" />
+
+你可以看到，总体上种类和结构还是比较简单的，如果我们的应用侧重于 Map 放入或者获取的速度，而不在乎顺序，大多推荐使用 ConcurrentHashMap，反之则使用 ConcurrentSkipListMap；如果我们需要对大量数据进行非常频繁地修改，ConcurrentSkipListMap 也可能表现出优势。
+我在前面的专栏，谈到了普通无顺序场景选择 HashMap，有顺序场景则可以选择类似 TreeMap 等，但是为什么并发容器里面没有 ConcurrentTreeMap 呢？
+
+这是因为 TreeMap 要实现高效的线程安全是非常困难的，它的实现基于复杂的红黑树。为保证访问效率，当我们插入或删除节点时，会移动节点进行平衡操作，这导致在并发场景中难以进行合理粒度的同步。而 SkipList 结构则要相对简单很多，通过层次结构提高访问速度，虽然不够紧凑，空间使用有一定提高（O(nlogn)），但是在增删元素时线程安全的开销要好很多。
+
+下面这张图是 Java 并发类库提供的各种各样的线程安全队列实现
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703175412.png" style="zoom:67%;" />
+
+##### 2.5.2.1 Semaphore（信号量）
+Java 提供了经典信号量Semaphore的实现，它通过控制一定数量的允许（permit）的方式，来达到限制通用资源访问的目的。你可以想象一下这个场景，在车站、机场等出租车时，当很多空出租车就位时，为防止过度拥挤，调度员指挥排队等待坐车的队伍一次进来 5 个人上车，等这 5 个人坐车出发，再放进去下一批，这和 Semaphore 的工作原理有些类似。如果初始化了一个许可为1的Semaphore，那么就相当于一个不可重入的互斥锁（Mutex）。
+实例场景：理论的听起来有些绕口，其实假设生活中一个常见的场景：每天早上，大家都热衷于带薪上厕所，但是公司厕所一共只有10个坑位。。那么只能同时10个人用着，后面来的人都得等着（阻塞），如果走了2个人，那么又可以进去2个人。这里面就是Semaphore的应用场景，争夺有限的资源。
+
+``` java
+import java.util.concurrent.Semaphore;
+public class AbnormalSemaphoreSample {
+	public static void main(String[] args) throws InterruptedException {
+    	Semaphore semaphore = new Semaphore(0);
+    	for (int i = 0; i < 10; i++) {
+        	Thread t = new Thread(new MyWorker(semaphore));
+        	t.start();
+    	}
+    	System.out.println("Action...GO!");
+    	semaphore.release(5);
+    	System.out.println("Wait for permits off");
+    	while (semaphore.availablePermits()!=0) {
+        	Thread.sleep(100L);
+    	}
+    	System.out.println("Action...GO again!");
+    	semaphore.release(5);
+	}
+}
+class MyWorker implements Runnable {
+	private Semaphore semaphore;
+	public MyWorker(Semaphore semaphore) {
+    	this.semaphore = semaphore;
+	}
+	@Override
+	public void run() {
+    	try {
+        	semaphore.acquire();
+        	System.out.println("Executed!");
+    	} catch (InterruptedException e) {
+        	e.printStackTrace();
+    	}
+	}
+}
+```
+
+##### 2.5.2.2 CountDownLatch（闭锁）
+CountDownLatch许一个或多个线程等待某些操作完成。CountDownLatch 是不可以重置的，所以无法重用；而 CyclicBarrier 则没有这种限制，可以重用。CountDownLatch 的基本操作组合是 countDown/await。调用 await 的线程阻塞等待 countDown 足够的次数，不管你是在一个线程还是多个线程里 countDown，只要次数足够即可。所以就像 Brain Goetz 说过的，CountDownLatch 操作的是事件。
+CountDownLatch是一种灵活的闭锁实现，它可以使一个或者多个线程等待一组事件的发生。闭锁状态包含一个计数器，该计数器被初始化为一个正数，表示需要等待的事件数量。countDown方法递减计数器，表示已经有一个事件已经发生了。而await方法等待计数器达到0，这表示所有需要等待的事件都已经发生。如果计数器的值非0，那么await会一直阻塞直到计数器为0，或者等待中的线程中断或者超时。代码如下
+``` java
+import java.util.concurrent.CountDownLatch;
+public class LatchSample {
+	public static void main(String[] args) throws InterruptedException {
+    	CountDownLatch latch = new CountDownLatch(6);
+           for (int i = 0; i < 5; i++) {
+                Thread t = new Thread(new FirstBatchWorker(latch));
+                t.start();
+    	}
+    	for (int i = 0; i < 5; i++) {
+        	    Thread t = new Thread(new SecondBatchWorker(latch));
+        	    t.start();
+    	}
+           // 注意这里也是演示目的的逻辑，并不是推荐的协调方式
+    	while ( latch.getCount() != 1 ){
+        	    Thread.sleep(100L);
+    	}
+    	System.out.println("Wait for first batch finish");
+    	latch.countDown();
+	}
+}
+class FirstBatchWorker implements Runnable {
+	private CountDownLatch latch;
+	public FirstBatchWorker(CountDownLatch latch) {
+    	this.latch = latch;
+	}
+	@Override
+	public void run() {
+        	System.out.println("First batch executed!");
+        	latch.countDown();
+	}
+}
+class SecondBatchWorker implements Runnable {
+	private CountDownLatch latch;
+	public SecondBatchWorker(CountDownLatch latch) {
+    	this.latch = latch;
+	}
+	@Override
+	public void run() {
+    	try {
+        	latch.await();
+        	System.out.println("Second batch executed!");
+    	} catch (InterruptedException e) {
+        	e.printStackTrace();
+    	}
+	}
+}
+```
+##### 2.5.2.3 CyclicBarrier（栅栏）
+CyclicBarrier适用于这样的情况：你希望创建一组任务，它们并行地执行工作，然后在下一个步骤之前等待，直到所有任务都完成。栅栏和闭锁的关键区别在于，所有线程必须同时到达栅栏位置，才能继续执行。
+闭锁用于等待事件，而栅栏是线程之间彼此等待，等到都到的时候再决定做下一件事。可以参考Java并发工具类（闭锁CountDownLatch）
+拿运动员的事情举例，运动员们跑到终点，互相等待所有人都到达终点后，再一起去做喝酒这件事。（运动员也许不能喝酒的，也许大家再跑一轮。）
+``` java
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+public class CyclicBarrierSample {
+	public static void main(String[] args) throws InterruptedException {
+    	CyclicBarrier barrier = new CyclicBarrier(5, new Runnable() {
+        	@Override
+        	public void run() {
+            	System.out.println("Action...GO again!");
+        	}
+    	});
+    	for (int i = 0; i < 5; i++) {
+        	Thread t = new Thread(new CyclicWorker(barrier));
+        	t.start();
+    	}
+	}
+	static class CyclicWorker implements Runnable {
+    	private CyclicBarrier barrier;
+    	public CyclicWorker(CyclicBarrier barrier) {
+        	this.barrier = barrier;
+    	}
+    	@Override
+    	public void run() {
+        	try {
+            	for (int i=0; i<3 ; i++){
+                	System.out.println("Executed!");
+                	barrier.await();
+            	}
+        	} catch (BrokenBarrierException e) {
+            	e.printStackTrace();
+        	} catch (InterruptedException e) {
+            	e.printStackTrace();
+        	}
+ 	   }
+	}
+}
+```
+
+##### 2.5.2.4 ConcurrentHashMap
 ConcurrentHashMap 的设计实现其实一直在演化，早期 ConcurrentHashMap，其实现是基于分离锁，也就是将内部进行分段（Segment），里面则是 HashEntry 的数组，和 HashMap 类似，哈希相同的条目也是以链表形式存放。HashEntry 内部使用 volatile 的 value 字段来保证可见性，也利用了不可变对象的机制以改进利用 Unsafe [2]提供的底层能力，比如 volatile access，去直接完成部分操作，以最优化性能，毕竟 Unsafe 中的很多操作都是 JVM intrinsic 优化过的。其核心是利用分段设计，在进行并发操作的时候，只需要锁定相应段，这样就有效避免了类似 Hashtable 整体同步的问题，大大提高了性能。在构造的时候，Segment 的数量由所谓的 concurrentcyLevel 决定，默认是 16，也可以在相应构造函数直接指定。注意，Java 需要它是 2 的幂数值，如果输入是类似 15 这种非幂值，会被自动调整到 16 之类 2 的幂数值。
 
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200622192401.png" style="zoom:50%;" />
@@ -318,6 +469,112 @@ ConcurrentHashMap 的设计实现其实一直在演化，早期 ConcurrentHashMa
 在进行并发写操作时ConcurrentHashMap 会获取再入锁，以保证数据一致性，Segment 本身就是基于 ReentrantLock 的扩展实现，所以，在并发修改期间，相应 Segment 是被锁定的。在最初阶段，进行重复性的扫描，以确定相应 key 值是否已经在数组里面，进而决定是更新还是放置操作，重复扫描、检测冲突是 ConcurrentHashMap 的常见技巧。ConcurrentHashMap 在扩容时它进行的不是整体的扩容，而是单独对 Segment 进行扩容
 
 在 Java 8 和之后的版本中ConcurrentHashMap总体结构上，它的内部存储变得和HashMap 结构非常相似，同样是大的桶（bucket）数组，然后内部也是一个个所谓的链表结构（bin），同步的粒度要更细致一些。其内部仍然有 Segment 定义，但仅仅是为了保证序列化时的兼容性而已，不再有任何结构上的用处。因为不再使用 Segment，初始化操作大大简化，修改为 lazy-load 形式，这样可以有效避免初始开销，解决了老版本很多人抱怨的这一点。数据存储利用 volatile 来保证可见性。使用 CAS 等操作，在特定场景进行无锁并发操作。使用 Unsafe、LongAdder 之类底层手段，进行极端情况的优化。
+
+##### 2.5.2.4 ConcurrentSkipListMap
+什么是SkipList？Skip List ，称之为跳表，它是一种可以替代平衡树的数据结构，其数据元素默认按照key值升序，天然有序。Skip list让已排序的数据分布在多层链表中，以0-1随机数决定一个数据的向上攀升与否，通过“空间来换取时间”的一个算法，在每个节点中增加了向前的指针，在插入、删除、查找时可以忽略一些不可能涉及到的结点，从而提高了效率。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703164940.png" style="zoom:67%;" />
+
+SkipList具备如下特性：
+1. 由很多层结构组成，level是通过一定的概率随机产生的
+2. 每一层都是一个有序的链表，默认是升序，也可以根据创建映射时所提供的Comparator进行排序，具体取决于使用的构造方法
+3. 最底层(Level 1)的链表包含所有元素
+4. 如果一个元素出现在Level i 的链表中，则它在Level i 之下的链表也都会出现
+5. 每个节点包含两个指针，一个指向同一链表中的下一个元素，一个指向下面一层的元素
+
+SkipList的插入操作主要包括：查找合适的位置。这里需要明确一点就是在确认新节点要占据的层次K时，采用丢硬币的方式，完全随机。如果占据的层次K大于链表的层次，则重新申请新的层，否则插入指定层次，然后申请新的节点，调整指针。
+
+##### 2.5.2.5 CopyOnWriteArrayList、CopyOnWriteArraySet
+关于两个 CopyOnWrite 容器，其实 CopyOnWriteArraySet 是通过包装了 CopyOnWriteArrayList 来实现的。
+
+CopyOnWrite 的原理是，任何修改操作，如 add、set、remove，我们不在原有内存块中进行写操作，而是将内存拷贝一份，在新的内存中进行写操作，写完之后呢，就将指向原来内存指针指向新的内存，原来的内存就可以被回收掉嘛。所以这种数据结构，相对比较适合读多写少的操作，不然修改的开销还是非常明显的。这些修改操作的逻辑部分用了ReentrantLock加锁，避免拷贝出多份造成线程安全问题。
+
+##### 2.5.2.6 Deque
+从基本的数据结构的角度分析Deque，有两个特别的Deque实现，ConcurrentLinkedDeque 和 LinkedBlockingDeque。Deque 的侧重点是支持对队列头尾都进行插入和删除，所以提供了特定的方法，尾部插入时需要的addLast(e)、offerLast(e)。尾部删除所需要的removeLast()、pollLast()。从上面这些角度，能够理解 ConcurrentLinkedDeque 和 LinkedBlockingQueue 的主要功能区别，也就足够日常开发的需要了。
+
+##### 2.5.2.7 Queue
+从行为特征来看，绝大部分 Queue 都是实现了 BlockingQueue 接口。在常规队列操作基础上，Blocking 意味着其提供了特定的等待性操作，获取时（take）等待元素进队，或者插入时（put）等待队列出现空位。
+
+* ArrayBlockingQueue 是最典型的的有界队列，其内部以 final 的数组保存数据，数组的大小就决定了队列的边界，所以我们在创建 ArrayBlockingQueue 时，都要指定容量，如`public ArrayBlockingQueue(int capacity, boolean fair)`
+* LinkedBlockingQueue，容易被误解为无边界，但其实其行为和内部代码都是基于有界的逻辑实现的，只不过如果我们没有在创建队列时就指定容量，那么其容量限制就自动被设置为 Integer.MAX_VALUE，成为了无界队列。
+* SynchronousQueue，这是一个非常奇葩的队列实现，每个删除操作都要等待插入操作，反之每个插入操作也都要等待删除动作。那么这个队列的容量是多少呢？是 1 吗？其实不是的，其内部容量是 0。
+* PriorityBlockingQueue 是无边界的优先队列，虽然严格意义上来讲，其大小总归是要受系统资源影响。
+* DelayedQueue 和 LinkedTransferQueue 同样是无边界的队列。对于无边界的队列，有一个自然的结果，就是 put 操作永远也不会发生其他 BlockingQueue 的那种等待情况。
+如果我们分析不同队列的底层实现，BlockingQueue 基本都是基于锁实现， LinkedBlockingQueue源码如下：
+``` java
+/** Lock held by take, poll, etc */
+private final ReentrantLock takeLock = new ReentrantLock();
+/** Wait queue for waiting takes */
+private final Condition notEmpty = takeLock.newCondition();
+/** Lock held by put, offer, etc */
+private final ReentrantLock putLock = new ReentrantLock();
+/** Wait queue for waiting puts */
+private final Condition notFull = putLock.newCondition();
+// ConcurrentLinkedQueue 等，则是基于 CAS 的无锁技术，不需要在每个操作时使用锁，所以扩展性表现要更加优异。
+public E take() throws InterruptedException {
+    final E x;
+    final int c;
+    final AtomicInteger count = this.count;
+    final ReentrantLock takeLock = this.takeLock;
+    takeLock.lockInterruptibly();
+    try {
+        while (count.get() == 0) {
+            notEmpty.await();
+        }
+        x = dequeue();
+        c = count.getAndDecrement();
+        if (c > 1)
+            notEmpty.signal();
+    } finally {
+        takeLock.unlock();
+    }
+    if (c == capacity)
+        signalNotFull();
+    return x;
+}
+```
+
+ArrayBlockingQueue与LinkedBlockingQueue 锁的实现是有区别的。ArrayBlockingQueue中notEmpty、notFull 都是同一个再入锁的条件变量，而 LinkedBlockingQueue 则改进了锁操作的粒度，头、尾操作使用不同的锁，所以在通用场景下，它的吞吐量相对要更好一些。下面是ArrayBlockingQueue源码：
+``` java
+// notEmpty、notFull 为同一ReentrantLock的condition（条件）
+/** Condition for waiting takes */
+private final Condition notEmpty;
+/** Condition for waiting puts */
+private final Condition notFull;
+ 
+public ArrayBlockingQueue(int capacity, boolean fair) {
+	if (capacity <= 0)
+    	throw new IllegalArgumentException();
+	this.items = new Object[capacity];
+	lock = new ReentrantLock(fair);
+	notEmpty = lock.newCondition();
+	notFull =  lock.newCondition();
+}
+// 当队列为空时，试图 take 的线程的正确行为应该是等待入队发生，而不是直接返回，使用条件notEmpty就可以优雅地实现这一逻辑。
+public E take() throws InterruptedException {
+	final ReentrantLock lock = this.lock;
+	lock.lockInterruptibly();
+	try {
+    	while (count == 0)
+        	notEmpty.await();
+    	return dequeue();
+	} finally {
+    	lock.unlock();
+	}
+}
+// 通过 signal/await 的组合，完成了条件判断和通知等待线程，非常顺畅就完成了状态流转。注意，signal 和 await 成对调用非常重要。
+private void enqueue(E e) {
+	// assert lock.isHeldByCurrentThread();
+	// assert lock.getHoldCount() == 1;
+	// assert items[putIndex] == null;
+	final Object[] items = this.items;
+	items[putIndex] = e;
+	if (++putIndex == items.length) putIndex = 0;
+	count++;
+	notEmpty.signal(); // 通知等待的线程，非空条件已经满足
+}
+```
+
 
 ### 2.6 集合排序
 * 对于原始数据类型，目前使用的是所谓双轴快速排序（Dual-Pivot QuickSort），是一种改进的快速排序算法，早期版本是相对传统的快速排序，该算法是不稳定的。
@@ -343,8 +600,9 @@ List<String> simpleList = List.of("Hello","world");
 更进一步，通过各种 of 静态工厂方法创建的实例，还应用了一些我们所谓的最佳实践，比如，它是不可变的，符合我们对线程安全的需求；它因为不需要考虑扩容，所以空间上更加紧凑等。
 
 ## 三、 多线程
+线程有时称为 轻量级进程，是系统调度的最小单元，一个进程可以包含多个线程。与进程一样，它们拥有通过程序运行的独立的并发路径，并且每个线程都有自己的程序计数器，称为堆栈和本地变量。然而，线程存在于进程中，它们与同一进程内的其他线程共享内存、文件句柄以及每进程状态。因为一个进程中的线程是在同一个地址空间中执行的，所以多个线程可以同时访问相同对象，并且它们从同一堆栈中分配对象。虽然这使线程更易于与其他线程共享信息，但也意味着您必须确保线程之间不相互干涉。正确使用线程时，线程能带来诸多好处，其中包括更好的资源利用、简化开发、高吞吐量、更易响应的用户界面以及能执行异步处理。
 
-线程有时称为 轻量级进程。与进程一样，它们拥有通过程序运行的独立的并发路径，并且每个线程都有自己的程序计数器，称为堆栈和本地变量。然而，线程存在于进程中，它们与同一进程内的其他线程共享内存、文件句柄以及每进程状态。因为一个进程中的线程是在同一个地址空间中执行的，所以多个线程可以同时访问相同对象，并且它们从同一堆栈中分配对象。虽然这使线程更易于与其他线程共享信息，但也意味着您必须确保线程之间不相互干涉。正确使用线程时，线程能带来诸多好处，其中包括更好的资源利用、简化开发、高吞吐量、更易响应的用户界面以及能执行异步处理。
+在具体实现中，线程还分为内核线程、用户线程，Java 的线程实现其实是与虚拟机相关的。对于我们最熟悉的 Sun/Oracle JDK，其线程也经历了一个演进过程，基本上在 Java 1.2 之后，JDK 已经抛弃了所谓的Green Thread，也就是用户调度的线程，现在的模型是一对一映射到操作系统内核线程。如果我们来看 Thread 的源码，你会发现其基本操作逻辑大都是以 JNI 形式调用的本地代码。
 
 使用线程的理由包括：
 • **更易响应的用户界面**。 事件驱动的 GUI 工具包（如 AWT 或 Swing）使用单独的事件线程来处理 GUI 事件。从事件线程中调用通过 GUI 对象注册的事件监听器。然而，如果事件监听器将执行冗长的任务（如文档拼写检查），那么 UI 将出现冻结，因为事件线程直到冗长任务完毕之后才能处理其他事件。通过在单独线程中执行冗长操作，当执行冗长后台任务时，UI 能继续响应。
@@ -353,8 +611,6 @@ List<String> simpleList = List.of("Hello","world");
 • **异步或后台处理**。 服务器应用程序可以同时服务于许多远程客户机。如果应用程序从 socket 中读取数据，并且没有数据可以读取，那么对 read() 的调用将被阻塞，直到有数据可读。在单线程应用程序中，这意味着当某一个线程被阻塞时，不仅处理相应请求要延迟，而且处理所有请求也将延迟。然而，如果每个 socket 都有自己的 IO 线程，那么当一个线程被阻塞时，对其他并发请求行为没有影响。
 
 大多数现代处理器对并发对某一硬件级别提供支持，通常以 compare-and-swap （CAS）指令形式。CAS 是一种低级别的、细粒度的技术，它允许多个线程更新一个内存位置，同时能够检测其他线程的冲突并进行恢复。它是许多高性能并发算法的基础。
-
-
 
 ### 3.1 多线程演进
 * 1.0-1.4 中的 java.lang.Thread
@@ -528,6 +784,7 @@ public class RWSample {
 #### 3.3.1 synchronized
 synchronized属于独占锁、悲观锁，它是在假设一定会发生冲突的，当一个线程已经获取当前锁时，其他试图获取的线程只能等待或者阻塞在那里。
 在 Java 5 以前，synchronized 是仅有的同步手段， Java 5 提供了ReentrantLock，通常翻译为再入锁，它的语义和 synchronized 基本相同。再入锁通过代码直接调用 lock() 方法获取，代码书写也更加灵活。synchronized 和 ReentrantLock 的性能不能一概而论，早期版本 synchronized 在很多场景下性能相差较大，在后续版本进行了较多改进，在低竞争场景中表现可能优于 ReentrantLock。
+
 ``` java
 public class SyncTest {
     // 修饰代码块，指定加锁对象，对给定对象加锁，进入同步代码块前要获得给定对象的锁。
@@ -558,9 +815,7 @@ synchronized修饰方法：javac为其生成了一个ACC_SYNCHRONIZED关键字�
 
 我注意到有的观点认为 Java 不会进行锁降级。实际上据我所知，锁降级确实是会发生的，当 JVM 进入安全点（SafePoint）的时候，会检查是否有闲置的 Monitor，然后试图进行降级。
 
-偏斜锁并不适合所有应用场景，撤销操作（revoke）是比较重的行为，只有当存在较多不会真正竞争的 synchronized 块儿时，才能体现出明显改善。实践中对于偏斜锁的一直是有争议的，有人甚至认为，当你需要大量使用并发类库时，往往意味着你不需要偏斜锁。从具体选择来看，我还是建议需要在实践中进行测试，根据结果再决定是否使用。 JVM 启动时，我们可以指定是否开启偏斜锁，`-XX:-UseBiasedLocking`
-
-还有一方面是，偏斜锁会延缓 JIT 预热的进程，所以很多性能测试中会显式地关闭偏斜锁，命令如下：
+偏斜锁并不适合所有应用场景，撤销操作（revoke）是比较重的行为，只有当存在较多不会真正竞争的 synchronized 块儿时，才能体现出明显改善。实践中对于偏斜锁的一直是有争议的，有人甚至认为，当你需要大量使用并发类库时，往往意味着你不需要偏斜锁。从具体选择来看，我还是建议需要在实践中进行测试，根据结果再决定是否使用。偏斜锁会延缓 JIT 预热的进程，所以很多性能测试中会显式地关闭偏斜锁， JVM 启动时，我们可以指定是否开启偏斜锁，`-XX:-UseBiasedLocking`
 
 
 #### 3.3.2 ReentrantLock
@@ -582,9 +837,38 @@ try {
 ReentrantLock 相比 synchronized，因为可以像普通对象一样使用，所以可以利用其提供的各种便利方法，进行精细的同步操作，甚至是实现 synchronized 难以表达的用例，例如：带超时的获取锁尝试、可以判断是否有线程，或者某个特定线程，在排队等待获取锁、可以响应中断请求…
 这里我特别想强调条件变量（java.util.concurrent.Condition），如果说 ReentrantLock 是 synchronized 的替代选择，Condition 则是将 wait、notify、notifyAll 等操作转化为相应的对象，将复杂而晦涩的同步操作转变为直观可控的对象行为。
 
-条件变量最为典型的应用场景就是标准类库中的 ArrayBlockingQueue 等。
+#### 3.3.3 避免死锁
 
-我们参考下面的源码，首先，通过再入锁获取条件变量：
+* 如果可能的话，尽量避免使用多个锁，并且只有需要时才持有锁。否则，即使是非常精通并发编程的工程师，也难免会掉进坑里，嵌套的 synchronized 或者 lock 非常容易出问题。
+* 如果必须使用多个锁，尽量设计好锁的获取顺序，这个说起来简单，做起来可不容易，你可以参看著名的银行家算法
+* 使用带超时的方法，为程序带来更多可控性。类似 Object.wait(…) 或者 CountDownLatch.await(…)，都支持所谓的 timed_wait，我们完全可以就不假定该锁一定会获得，指定超时时间，并为无法得到锁时准备退出逻辑。
+
+业界也有一些其他方面的尝试，比如通过静态代码分析（如 FindBugs）去查找固定的模式，进而定位可能的死锁或者竞争情况。除了典型应用中的死锁场景，其实还有一些更令人头疼的死锁，比如类加载过程发生的死锁，尤其是在框架大量使用自定义类加载时，因为往往不是在应用本身的代码库中，jstack 等工具也不见得能够显示全部锁信息，所以处理起来比较棘手。
+
+### 3.4 线程状态
+
+关于线程生命周期的不同状态，在 Java 5 以后，线程状态被明确定义在其公共内部枚举类型 java.lang.Thread.State 中，分别是：
+
+* 新建（NEW），表示线程被创建出来还没真正启动的状态，可以认为它是个 Java 内部状态。
+* 就绪（RUNNABLE），表示该线程已经在 JVM 中执行，当然由于执行需要计算资源，它可能是正在运行，也可能还在等待系统分配给它 CPU 片段，在就绪队列里面排队。
+* 在其他一些分析中，会额外区分一种状态 RUNNING，但是从 Java API 的角度，并不能表示出来。
+* 阻塞（BLOCKED），这个状态和我们前面两讲介绍的同步非常相关，阻塞表示线程在等待 Monitor lock。比如，线程试图通过 synchronized 去获取某个锁，但是其他线程已经独占了，那么当前线程就会处于阻塞状态。
+* 等待（WAITING），表示正在等待其他线程采取某些操作。一个常见的场景是类似生产者消费者模式，发现任务条件尚未满足，就让当前消费者线程等待（wait），另外的生产者线程去准备任务数据，然后通过类似 notify 等动作，通知消费线程可以继续工作了。Thread.join() 也会令线程进入等待状态。
+* 计时等待（TIMED_WAIT），其进入条件和等待状态类似，但是调用的是存在超时条件的方法，比如 wait 或 join 等方法的指定超时版本，如
+* 终止（TERMINATED），不管是意外退出还是正常执行结束，线程已经完成使命，终止运行，也有人把这个状态叫作死亡。
+
+在第二次调用 start() 方法的时候，线程可能处于终止或者其他（非 NEW）状态，但是不论如何，都是不可以再次启动的。第二次调用必然会抛出 IllegalThreadStateException，这是一种运行时异常，多次调用 start 被认为是编程错误。
+
+从线程生命周期的状态开始展开，那么在 Java 编程中，有哪些因素可能影响线程的状态呢？主要有：
+
+线程自身的方法，除了 start，还有多个 join 方法，等待线程结束；yield 是告诉调度器，主动让出 CPU；另外，就是一些已经被标记为过时的 resume、stop、suspend 之类，据我所知，在 JDK 最新版本中，destory/stop 方法将被直接移除。
+基类 Object 提供了一些基础的 wait/notify/notifyAll 方法。如果我们持有某个对象的 Monitor 锁，调用 wait 会让当前线程处于等待状态，直到其他线程 notify 或者 notifyAll。所以，本质上是提供了 Monitor 的获取和释放的能力，是基本的线程间通信方式。
+并发类库中的工具，比如 CountDownLatch.await() 会让当前线程进入等待状态，直到 latch 被基数为 0，这可以看作是线程间通信的 Signal。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703102212.png" style="zoom:50%;" />
+
+Thread 和 Object 的方法，听起来简单，但是实际应用中被证明非常晦涩、易错，Java 后来又引入了并发包。总的来说，有了并发包，大多数情况下，我们已经不再需要去调用 wait/notify 之类的方法了。
+
 
 
 
