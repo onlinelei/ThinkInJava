@@ -500,7 +500,7 @@ CopyOnWrite 的原理是，任何修改操作，如 add、set、remove，我们�
 * SynchronousQueue，这是一个非常奇葩的队列实现，每个删除操作都要等待插入操作，反之每个插入操作也都要等待删除动作。那么这个队列的容量是多少呢？是 1 吗？其实不是的，其内部容量是 0。
 * PriorityBlockingQueue 是无边界的优先队列，虽然严格意义上来讲，其大小总归是要受系统资源影响。
 * DelayedQueue 和 LinkedTransferQueue 同样是无边界的队列。对于无边界的队列，有一个自然的结果，就是 put 操作永远也不会发生其他 BlockingQueue 的那种等待情况。
-如果我们分析不同队列的底层实现，BlockingQueue 基本都是基于锁实现， LinkedBlockingQueue源码如下：
+如果我们分析不同队列的底层实现，BlockingQueue 基本都是基于ReentrantLock锁实现， LinkedBlockingQueue源码如下：
 ``` java
 /** Lock held by take, poll, etc */
 private final ReentrantLock takeLock = new ReentrantLock();
@@ -575,6 +575,15 @@ private void enqueue(E e) {
 }
 ```
 
+在实际开发中，我提到过 Queue 被广泛使用在生产者 - 消费者场景，比如利用 BlockingQueue 来实现，由于其提供的等待机制，我们可以少操心很多协调工作。如果使用非 Blocking 的队列，那么我们就要自己去实现轮询、条件判断（如检查 poll 返回值是否 null）等逻辑，如果没有特别的场景要求，Blocking 实现起来代码更加简单、直观。
+
+日常的应用开发中，如何进行选择:
+* 考虑应用场景中对队列边界的要求。ArrayBlockingQueue 是有明确的容量限制的，而 LinkedBlockingQueue 则取决于我们是否在创建时指定，SynchronousQueue 则干脆不能缓存任何元素。
+* 从空间利用角度，数组结构的 ArrayBlockingQueue 要比 LinkedBlockingQueue 紧凑，因为其不需要创建所谓节点，但是其初始分配阶段就需要一段连续的空间，所以初始内存需求更大。
+* 通用场景中，LinkedBlockingQueue 的吞吐量一般优于 ArrayBlockingQueue，因为它实现了更加细粒度的锁操作。
+* ArrayBlockingQueue 实现比较简单，性能更好预测，属于表现稳定的“选手”。
+* 如果我们需要实现的是两个线程之间接力性（handoff）的场景，你可能会选择 CountDownLatch，但是SynchronousQueue也是完美符合这种场景的，而且线程间协调和数据传输统一起来，代码更加规范。
+* 可能令人意外的是，很多时候 SynchronousQueue 的性能表现，往往大大超过其他实现，尤其是在队列元素较小的场景。
 
 ### 2.6 集合排序
 * 对于原始数据类型，目前使用的是所谓双轴快速排序（Dual-Pivot QuickSort），是一种改进的快速排序算法，早期版本是相对传统的快速排序，该算法是不稳定的。
@@ -837,6 +846,41 @@ try {
 ReentrantLock 相比 synchronized，因为可以像普通对象一样使用，所以可以利用其提供的各种便利方法，进行精细的同步操作，甚至是实现 synchronized 难以表达的用例，例如：带超时的获取锁尝试、可以判断是否有线程，或者某个特定线程，在排队等待获取锁、可以响应中断请求…
 这里我特别想强调条件变量（java.util.concurrent.Condition），如果说 ReentrantLock 是 synchronized 的替代选择，Condition 则是将 wait、notify、notifyAll 等操作转化为相应的对象，将复杂而晦涩的同步操作转变为直观可控的对象行为。
 
+ReentrantLock支持公平锁和非公平锁，并且ReentrantLock的底层就是由AQS来实现的，非公平锁源码中的加锁流程如下：
+
+``` java
+// java.util.concurrent.locks.ReentrantLock#NonfairSync
+// 非公平锁
+static final class NonfairSync extends Sync {
+	...
+	final void lock() {
+		if (compareAndSetState(0, 1))
+			setExclusiveOwnerThread(Thread.currentThread());
+		else
+			acquire(1);
+		}
+  ...
+}
+```
+这块代码的含义为：若通过CAS设置变量State（同步状态）成功，也就是获取锁成功，则将当前线程设置为独占线程。若通过CAS设置变量State（同步状态）失败，也就是获取锁失败，则进入Acquire方法进行后续处理。我们再看下公平锁的源码：
+``` java
+// java.util.concurrent.locks.ReentrantLock#FairSync
+static final class FairSync extends Sync {
+  ...  
+	final void lock() {
+		acquire(1);
+	}
+  ...
+}
+```
+结合公平锁和非公平锁的加锁流程，虽然流程上有一定的不同，但是都调用了Acquire方法，而Acquire方法是FairSync和UnfairSync的父类AQS（AbstractQueuedSynchronizer）中的核心方法。其实在ReentrantLock类源码中都无法解答，而这些问题的答案，都是位于Acquire方法所在的类AbstractQueuedSynchronizer中。
+AQS核心思想是，如果被请求的共享资源空闲，那么就将当前请求资源的线程设置为有效的工作线程，将共享资源设置为锁定状态；如果共享资源被占用，就需要一定的阻塞等待唤醒机制来保证锁分配。这个机制主要用的是CLH队列的变体实现的，将暂时获取不到锁的线程加入到队列中。
+CLH：Craig、Landin and Hagersten队列，是单向链表，AQS中的队列是CLH变体的虚拟双向队列（FIFO），AQS是通过将每条请求共享资源的线程封装成一个节点来实现锁的分配。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705190945.png" alt="img" style="zoom: 67%;" />
+
+AQS使用一个Volatile的int类型的成员变量来表示同步状态，通过内置的FIFO队列来完成资源获取的排队工作，通过CAS完成对State值的修改。
+
 #### 3.3.3 避免死锁
 
 * 如果可能的话，尽量避免使用多个锁，并且只有需要时才持有锁。否则，即使是非常精通并发编程的工程师，也难免会掉进坑里，嵌套的 synchronized 或者 lock 非常容易出问题。
@@ -869,8 +913,88 @@ ReentrantLock 相比 synchronized，因为可以像普通对象一样使用，�
 
 Thread 和 Object 的方法，听起来简单，但是实际应用中被证明非常晦涩、易错，Java 后来又引入了并发包。总的来说，有了并发包，大多数情况下，我们已经不再需要去调用 wait/notify 之类的方法了。
 
+### 3.5 线程池
+通常开发者都是利用 Executors 提供的通用线程池创建方法，去创建不同配置的线程池，主要区别在于不同的 ExecutorService 类型或者不同的初始参数。
+Executors 目前提供了 5 种不同的线程池创建配置：
+* newCachedThreadPool()，它是一种用来处理大量短时间工作任务的线程池，具有几个鲜明特点：它会试图缓存线程并重用，当无缓存线程可用时，就会创建新的工作线程；如果线程闲置的时间超过 60 秒，则被终止并移出缓存；长时间闲置时，这种线程池，不会消耗什么资源。其内部使用 SynchronousQueue 作为工作队列。
+* newFixedThreadPool(int nThreads)，重用指定数目（nThreads）的线程，其背后使用的是无界的工作队列，任何时候最多有 nThreads 个工作线程是活动的。这意味着，如果任务数量超过了活动队列数目，将在工作队列中等待空闲线程出现；如果有工作线程退出，将会有新的工作线程被创建，以补足指定的数目 nThreads。
+* newSingleThreadExecutor()，它的特点在于工作线程数目被限制为 1，操作一个无界的工作队列，所以它保证了所有任务的都是被顺序执行，最多会有一个任务处于活动状态，并且不允许使用者改动线程池实例，因此可以避免其改变线程数目。
+* newSingleThreadScheduledExecutor() 和 newScheduledThreadPool(int corePoolSize)，创建的是个 ScheduledExecutorService，可以进行定时或周期性的工作调度，区别在于单一工作线程还是多个工作线程。
+* newWorkStealingPool(int parallelism)，这是一个经常被人忽略的线程池，Java 8 才加入这个创建方法，其内部会构建ForkJoinPool，利用Work-Stealing算法，并行地处理任务，不保证处理顺序。
 
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705182243.png" style="zoom:50%;" />
 
+从上图可以看出Executor 是一个基础的接口，其初衷是将任务提交和任务执行细节解耦，这一点可以体会其定义的唯一方法。`void execute(Runnable command);`Executor 的设计是源于 Java 早期线程 API 使用的教训，开发者在实现应用逻辑时，被太多线程创建、调度等不相关细节所打扰。就像我们进行 HTTP 通信，如果还需要自己操作 TCP 握手，开发效率低下，质量也难以保证。
+ExecutorService 则更加完善，不仅提供 service 的管理功能，比如 shutdown 等方法，也提供了更加全面的提交任务机制，如返回Future而不是 void 的 submit 方法。`<T> Future<T> submit(Callable<T> task);
+
+Java 标准类库提供了几种基础实现，比如ThreadPoolExecutor、ScheduledThreadPoolExecutor、ForkJoinPool。这些线程池的设计特点在于其高度的可调节性和灵活性，以尽量满足复杂多变的实际应用场景，我会进一步分析其构建部分的源码，剖析这种灵活性的源头。
+ScheduledThreadPoolExecutor 是 ThreadPoolExecutor 的扩展，主要是增加了调度逻辑，ForkJoinPool 则是为 ForkJoinTask 定制的线程池，与通常意义的线程池有所不同。下面是应用于线程交互：
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705183559.png" style="zoom:50%;" />
+
+工作队列负责存储用户提交的各个任务，这个工作队列，可以是容量为 0 的 SynchronousQueue（使用 newCachedThreadPool），也可以是像固定大小线程池（newFixedThreadPool）那样使用 LinkedBlockingQueue。`private final BlockingQueue<Runnable> workQueue;`
+内部的“线程池”，这是指保持工作线程的集合，线程池需要在运行过程中管理线程创建、销毁。例如，对于带缓存的线程池，当任务压力较大时，线程池会创建新的工作线程；当业务压力退去，线程池会在闲置一段时间（默认 60 秒）后结束线程。`private final HashSet<Worker> workers = new HashSet<>();`
+
+线程池的工作线程被抽象为静态内部类 Worker，基于AQS（基于AbstractQueuedSynchronizer，ReentrantLock公平锁也是基于AQS）实现。
+
+- ThreadFactory 提供上面所需要的创建线程逻辑。
+- 如果任务提交时被拒绝，比如线程池已经处于 SHUTDOWN 状态，需要为其提供处理逻辑，Java 标准库提供了类似[ThreadPoolExecutor.AbortPolicy](https://docs.oracle.com/javase/9/docs/api/java/util/concurrent/ThreadPoolExecutor.AbortPolicy.html)等默认实现，也可以按照实际需求自定义。
+
+从上面的分析，就可以看出线程池的几个基本组成部分，一起都体现在线程池的构造函数中，从字面我们就可以大概猜测到其用意：
+
+- corePoolSize，所谓的核心线程数，可以大致理解为长期驻留的线程数目（除非设置了 allowCoreThreadTimeOut）。对于不同的线程池，这个值可能会有很大区别，比如 newFixedThreadPool 会将其设置为 nThreads，而对于 newCachedThreadPool 则是为 0。
+- maximumPoolSize，顾名思义，就是线程不够时能够创建的最大线程数。同样进行对比，对于 newFixedThreadPool，当然就是 nThreads，因为其要求是固定大小，而 newCachedThreadPool 则是 Integer.MAX_VALUE。
+- keepAliveTime 和 TimeUnit，这两个参数指定了额外的线程能够闲置多久，显然有些线程池不需要它。
+- workQueue，工作队列，必须是 BlockingQueue。
+
+通过配置不同的参数，我们就可以创建出行为大相径庭的线程池，这就是线程池高度灵活性的基础。
+``` java
+public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
+                      	BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler)
+```
+下图为线程的流转：
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705193410.png" style="zoom:50%;" />
+
+下面是execute 方法源码：
+
+``` java
+public void execute(Runnable command) {
+…
+	int c = ctl.get();
+  // 检查工作线程数目，低于 corePoolSize 则添加 Worker
+	if (workerCountOf(c) < corePoolSize) {
+    	if (addWorker(command, true))
+        	return;
+    	c = ctl.get();
+	}
+  // isRunning 就是检查线程池是否被 shutdown
+  // 工作队列可能是有界的，offer 是比较友好的入队方式
+	if (isRunning(c) && workQueue.offer(command)) {
+    	int recheck = ctl.get();
+      // 再次进行防御性检查
+    	if (! isRunning(recheck) && remove(command))
+        	reject(command);
+    	else if (workerCountOf(recheck) == 0)
+        	addWorker(null, false);
+	}
+  // 尝试添加一个 worker，如果失败意味着已经饱和或者被 shutdown 了
+	else if (!addWorker(command, false))
+    	reject(command);
+}
+```
+
+线程池虽然为提供了非常强大、方便的功能，但是也不是银弹，使用不当同样会导致问题。
+
+- 避免任务堆积。前面我说过 newFixedThreadPool 是创建指定数目的线程，但是其工作队列是无界的，如果工作线程数目太少，导致处理跟不上入队的速度，这就很有可能占用大量系统内存，甚至是出现 OOM。诊断时，你可以使用 jmap 之类的工具，查看是否有大量的任务对象入队。
+- 避免过度扩展线程。我们通常在处理大量短时任务时，使用缓存的线程池，比如在最新的 HTTP/2 client API 中，目前的默认实现就是如此。我们在创建线程池的时候，并不能准确预计任务压力有多大、数据特征是什么样子（大部分请求是 1K 、100K 还是 1M 以上？），所以很难明确设定一个线程数目。
+- 另外，如果线程数目不断增长（可以使用 jstack 等工具检查），也需要警惕另外一种可能性，就是线程泄漏，这种情况往往是因为任务逻辑有问题，导致工作线程迟迟不能被释放。建议你排查下线程栈，很有可能多个线程都是卡在近似的代码处。
+- 避免死锁等同步问题，对于死锁的场景和排查。
+- 尽量避免在使用线程池时操作 ThreadLocal；
+
+**线程池大小的选择策略**
+- 如果我们的任务主要是进行计算，那么就意味着 CPU 的处理能力是稀缺的资源，我们能够通过大量增加线程数提高计算能力吗？往往是不能的，如果线程太多，反倒可能导致大量的上下文切换开销。所以，这种情况下，通常建议按照 CPU 核的数目 N 或者 N+1。
+- 如果是需要较多等待的任务，例如 I/O 操作比较多，可以参考 Brain Goetz 推荐的计算方法：`线程数 = CPU 核数 × 目标 CPU 利用率 ×（1 + 平均等待时间 / 平均工作时间）`
 
 ## 四、算法
 
@@ -977,6 +1101,7 @@ DualPivotQuicksort，该排序算法是不稳定的，即：相等的两个元�
 
 ### 1. fail-fast
 在系统设计中，快速失效系统一种可以立即报告任何可能表明故障的情况的系统。快速失效系统通常设计用于停止正常操作，而不是试图继续可能存在缺陷的过程。这种设计通常会在操作中的多个点检查系统的状态，因此可以及早检测到任何故障。快速失败模块的职责是检测错误，然后让系统的下一个最高级别处理错误。
+
 ``` java
 for (String userName : userNames) {
     if (userName.equals("Hollis")) {
@@ -985,14 +1110,14 @@ for (String userName : userNames) {
 }
 ```
 上面代码中foreach 循环里进行元素的 remove/add 操作，运行程序会报`ConcurrentModificationException`这其实也是运用了fail-fast机制。我们剖析下源码发现在增强for循环中，集合遍历是通过iterator进行的，而在`iterator.next()`方法中我们发现下面的代码：
-``` java
+​``` java
 final void checkForComodification() {
     if (modCount != expectedModCount)
         throw new ConcurrentModificationException();
 }
 ```
 会在上面的代码中发现`modCount` 是ArrayList中的一个成员变量。它表示该集合实际被修改的次数，数组初始化时默认值为0。`expectedModCount` 是 ArrayList中的一个内部类，也是iterator中的成员变量，它表示这个迭代器预期该集合被修改的次数，值随着Itr被创建而初始化。那么，接着我们看下`userNames.remove(userName);`里面做了什么事情，为什么会导致`expectedModCount`和`modCount`不一样。通过翻阅代码，我们也可以发现，remove方法核心逻辑如下：
-``` java
+​``` java
 private void fastRemove(int index) {
     modCount++;
     int numMoved = size - index - 1;
