@@ -930,6 +930,7 @@ Netty 的设计强调了 “Separation Of Concerns”，通过精巧设计的事
 可以看到，Netty 的能力范围大大超过了 Java 核心类库中的 NIO 等 API，可以说它是一个从应用视角出发的产物。
 
 下图是 Netty 官方提供的 Server 部分:
+
 <img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200730105740.png" style="zoom:50%;" />
 
 上面的例子，虽然代码很短，但已经足够体现出 Netty 的几个核心概念，请注意我用红框标记出的部分：
@@ -940,6 +941,12 @@ EventLoop，这是 Netty 处理事件的核心机制。例子中使用了 EventL
 ChannelFuture，这是 Netty 实现异步 IO 的基础之一，保证了同一个 Channel 操作的调用顺序。Netty 扩展了 Java 标准的 Future，提供了针对自己场景的特有Future定义。
 ChannelHandler，这是应用开发者放置业务逻辑的主要地方，也是我上面提到的“Separation Of Concerns”原则的体现。
 ChannelPipeline，它是 ChannelHandler 链条的容器，每个 Channel 在创建后，自动被分配一个 ChannelPipeline。在上面的示例中，我们通过 ServerBootstrap 注册了 ChannelInitializer，并且实现了 initChannel 方法，而在该方法中则承担了向 ChannelPipleline 安装其他 Handler 的任务。
+
+参考下面的简化示意图，忽略 Inbound/OutBound Handler 的细节，理解这几个基本单元之间的操作流程和对应关系。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200730173929.png" style="zoom:50%;" />
+
+对比 Java 标准 NIO 的代码，Netty 提供的相对高层次的封装，减少了对 Selector 等细节的操纵，而 EventLoop、Pipeline 等机制则简化了编程模型，开发者不用担心并发等问题，在一定程度上简化了应用代码的开发。最难能可贵的是，这一切并没有以可靠性、可扩展性为代价，反而将其大幅度提高。
 
 
 
