@@ -433,6 +433,23 @@ change buffer 用的是 buffer pool 里的内存，因此不能无限增大。ch
 
 **redo log 主要节省的是随机写磁盘的 IO 消耗（转成顺序写），而 change buffer 主要节省的则是随机读磁盘的 IO 消耗。**
 
+## 3.10 MySQL选错索引优化
+其实大多数时候优化器都能找到正确的索引，但偶尔你还是会碰到优化失败的情况，原本可以执行得很快的 SQL 语句，执行速度却比你预期的慢很多，你应该怎么办呢？
+
+* 一种方法是，采用 force index 强行选择一个索引。MySQL 会根据词法解析的结果分析出可能可以使用的索引作为候选项，然后在候选列表中依次判断每个索引需要扫描多少行。如果 force index 指定的索引在候选索引列表中，就直接选择这个索引，不再评估其他索引的执行代价。
+
+```sql
+select * from t force index(a) where (a between 1 and 1000) and (b between 50000 and 100000) order by b limit 1;
+```
+
+* 第二种方法就是，我们可以考虑修改语句，引导 MySQL 使用我们期望的索引。比如，在这个例子里，显然把“order by b limit 1” 改成 “order by b,a limit 1” ，语义的逻辑是相同的。
+
+```sql
+select * from t where (a between 1 and 1000) and (b between 50000 and 100000) order by b,a limit 1;
+```
+
+* 第三种方法是，在有些场景下，我们可以新建一个更合适的索引，来提供给优化器做选择，或删掉误用的索引。
+
 # 四、锁
 
 **根据加锁的范围，MySQL 里面的锁大致可以分成全局锁、表级锁和行锁三类**。今天这篇文章，我会和你分享全局锁和表级锁。而关于行锁的内容，我会留着在下一篇文章中再和你详细介绍。
