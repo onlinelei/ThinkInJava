@@ -944,6 +944,147 @@ count(*)、count(主键 id) 和 count(1) 都表示返回满足条件的结果集
 **但是 count(\*) 是例外**，并不会把全部字段取出来，而是专门做了优化，不取值。count(*) 肯定不是 null，按行累加。所以结论是：按照效率排序的话，count(字段)<count(主键 id)<count(1)≈count(*)，所以我建议你，尽量使用 count(*)。
 
 ## 6.2 “order by”是怎么工作的
+假设你要查询城市是“杭州”的所有人名字，并且按照姓名排序返回前 1000 个人的姓名、年龄。前面我们介绍过索引，所以你现在就很清楚了，为避免全表扫描，我们需要在 city 字段加上索引。
+```sql
+select city,name,age from t where city='杭州' order by name limit 1000  ;
+```
+
+通常情况下，这个语句执行流程如下所示 ：
+
+1. 初始化 sort_buffer，确定放入 name、city、age 这三个字段；
+2. 从索引 city 找到第一个满足 city='杭州’条件的主键 id，也就是图中的 ID_X；
+3. 到主键 id 索引取出整行，取 name、city、age 三个字段的值，存入 sort_buffer 中；
+4. 从索引 city 取下一个记录的主键 id；
+5. 重复步骤 3、4 直到 city 的值不满足查询条件为止，对应的主键 id 也就是图中的 ID_Y；
+6. 对 sort_buffer 中的数据按照字段 name 做快速排序；
+7. 按照排序结果取前 1000 行返回给客户端。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815112936.png" style="zoom:33%;" />
+
+图中“按 name 排序”这个动作，可能在内存中完成，也可能需要使用外部排序，这取决于排序所需的内存和参数 sort_buffer_size。sort_buffer_size，就是 MySQL 为排序开辟的内存（sort_buffer）的大小。如果要排序的数据量小于 sort_buffer_size，排序就在内存中完成。但如果排序数据量太大，内存放不下，则不得不利用磁盘临时文件辅助排序。
+
+你可以用下面介绍的方法，来确定一个排序语句是否使用了临时文件。
+
+```sql
+/* 打开 optimizer_trace，只对本线程有效 */
+SET optimizer_trace='enabled=on'; 
+ 
+/* @a 保存 Innodb_rows_read 的初始值 */
+select VARIABLE_VALUE into @a from  performance_schema.session_status where variable_name = 'Innodb_rows_read';
+ 
+/* 执行语句 */
+select city, name,age from t where city='杭州' order by name limit 1000; 
+ 
+/* 查看 OPTIMIZER_TRACE 输出 */
+SELECT * FROM `information_schema`.`OPTIMIZER_TRACE`\G
+ 
+/* @b 保存 Innodb_rows_read 的当前值 */
+select VARIABLE_VALUE into @b from performance_schema.session_status where variable_name = 'Innodb_rows_read';
+ 
+/* 计算 Innodb_rows_read 差值 */
+select @b-@a;
+```
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815113929.png" style="zoom: 67%;" />
+
+这个方法是通过查看 OPTIMIZER_TRACE 的结果来确认的，你可以从 number_of_tmp_files 中看到是否使用了临时文件。number_of_tmp_files 表示的是，排序过程中使用的临时文件数。你一定奇怪，为什么需要 12 个文件？内存放不下时，就需要使用外部排序，外部排序一般使用归并排序算法。可以这么简单理解，**MySQL 将需要排序的数据分成 12 份，每一份单独排序后存在这些临时文件中。然后把这 12 个有序文件再合并成一个有序的大文件。**
+
+如果 sort_buffer_size 超过了需要排序的数据量的大小，number_of_tmp_files 就是 0，表示排序可以直接在内存中完成。否则就需要放在临时文件中排序。sort_buffer_size 越小，需要分成的份数越多，number_of_tmp_files 的值就越大。
+
+上图中其他两个值 examined_rows=4000，表示参与排序的行数是 4000 行。sort_mode 里面的 packed_additional_fields 的意思是，排序过程对字符串做了“紧凑”处理。即使 name 字段的定义是 varchar(16)，在排序过程中还是要按照实际长度来分配空间的。
+
+### 6.2.1 rowid 排序
+
+在上面这个算法过程里面，只对原表的数据读了一遍，剩下的操作都是在 sort_buffer 和临时文件中执行的。但这个算法有一个问题，就是如果查询要返回的字段很多的话，那么 sort_buffer 里面要放的字段数太多，这样内存里能够同时放下的行数很少，要分成很多个临时文件，排序的性能会很差。
+
+那么，**如果 MySQL 认为排序的单行长度太大会怎么做呢？**接下来，我来修改一个参数，让 MySQL 采用另外一种算法。max_length_for_sort_data，是 MySQL 中专门控制用于排序的行数据的长度的一个参数。它的意思是，如果单行的长度超过这个值，MySQL 就认为单行太大，要换一个算法。
+
+```sql
+SET max_length_for_sort_data = 16;
+```
+
+还是上面的例子，city、name、age 这三个字段的定义总长度是 36，我把 max_length_for_sort_data 设置为 16，新的算法放入 sort_buffer 的字段，只有要排序的列（即 name 字段）和主键 id。但这时，排序的结果就因为少了 city 和 age 字段的值，不能直接返回了，整个执行流程就变成如下所示的样子：
+
+1. 初始化 sort_buffer，确定放入两个字段，即 name 和 id；
+2. 从索引 city 找到第一个满足 city='杭州’条件的主键 id，也就是图中的 ID_X；
+3. 到主键 id 索引取出整行，取 name、id 这两个字段，存入 sort_buffer 中；
+4. 从索引 city 取下一个记录的主键 id；
+5. 重复步骤 3、4 直到不满足 city='杭州’条件为止，也就是图中的 ID_Y；
+6. 对 sort_buffer 中的数据按照字段 name 进行排序；
+7. 遍历排序结果，取前 1000 行，并按照 id 的值回到原表中取出 city、name 和 age 三个字段返回给客户端。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815115353.png" style="zoom:50%;" />
+
+需要说明的是，最后的“结果集”是一个逻辑概念，实际上 MySQL 服务端从排序后的 sort_buffer 中依次取出 id，然后到原表查到 city、name 和 age 这三个字段的结果，不需要在服务端再耗费内存存储结果，是直接返回给客户端的。
+
+根据这个说明过程和图示，你可以想一下，这个时候执行 select @b-@a 首先，图中的 examined_rows 的值还是 4000，表示用于排序的数据是 4000 行。但是 select @b-@a 这个语句的值变成 5000 了。因为这时候除了排序过程外，在排序完成后，还要根据 id 去原表取值。由于语句是 limit 1000，因此会多读 1000 行。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815120856.png" style="zoom:67%;" />
+
+- sort_mode 变成了 <sort_key, rowid>，表示参与排序的只有 name 和 id 这两个字段。
+- number_of_tmp_files 变成 10 了，是因为这时候参与排序的行数虽然仍然是 4000 行，但是每一行都变小了，因此需要排序的总数据量就变小了，需要的临时文件也相应地变少了。
+
+这个例子中我们还可以使用索引进行优化，创建一个 city, name, age 的联合索引，既保证了数据的有序性，还不会回表查询 name 和 age 当然，这里并不是说要为了每个查询能用上覆盖索引，就要把语句中涉及的字段都建上联合索引，毕竟索引还是有维护代价的。这是一个需要权衡的决定。
+
+```sql
+alter table t add index city_user_age(city, name, age);
+```
+
+## 6.3 如何正确地显示随机消息
+
+现在有一种场景，从一个表中随机取出3条数据，首先，你会想到用 order by rand() 来实现这个逻辑。
+
+```sql
+mysql> select word from words order by rand() limit 3;
+```
+
+这个语句的意思很直白，随机排序取前 3 个。虽然这个 SQL 语句写法很简单，但执行流程却有点复杂的，我们先用 explain 命令来看看这个语句的执行情况：
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815155025.png" style="zoom:67%;" />
+
+Extra 字段显示 Using temporary，表示的是需要使用临时表；Using filesort，表示的是需要执行排序操作。
+
+这条语句的执行流程是这样的：
+
+1. 创建一个临时表。这个临时表使用的是 memory 引擎，表里有两个字段，第一个字段是 double 类型，为了后面描述方便，记为字段 R，第二个字段是 varchar(64) 类型，记为字段 W。并且，这个表没有建索引。
+2. 从 words 表中，按主键顺序取出所有的 word 值。对于每一个 word 值，调用 rand() 函数生成一个大于 0 小于 1 的随机小数，并把这个随机小数和 word 分别存入临时表的 R 和 W 字段中，到此，扫描行数是 10000。
+3. 现在临时表有 10000 行数据了，接下来你要在这个没有索引的内存临时表上，按照字段 R 排序。
+4. 初始化 sort_buffer。sort_buffer 中有两个字段，一个是 double 类型，另一个是整型。
+5. 从内存临时表中一行一行地取出 R 值和位置信息（我后面会和你解释这里为什么是“位置信息”），分别存入 sort_buffer 中的两个字段里。这个过程要对内存临时表做全表扫描，此时扫描行数增加 10000，变成了 20000。
+6. 在 sort_buffer 中根据 R 的值进行排序。注意，这个过程没有涉及到表操作，所以不会增加扫描行数。
+7. 排序完成后，取出前三个结果的位置信息，依次到内存临时表中取出 word 值，返回给客户端。这个过程中，访问了表的三行数据，总扫描行数变成了 20003。
+
+那么，是不是所有的临时表都是内存表呢？其实不是的。tmp_table_size 这个配置限制了内存临时表的大小，默认值是 16M。如果临时表大小超过了 tmp_table_size，那么内存临时表就会转成磁盘临时表。磁盘临时表使用的引擎默认是 InnoDB，是由参数 internal_tmp_disk_storage_engine 控制的。
+
+优化：我们先把问题简化一下，如果只随机选择 1 个 word 值，可以怎么做呢？思路上是这样的：
+
+1. 取得这个表的主键 id 的最大值 M 和最小值 N;
+2. 用随机函数生成一个最大值到最小值之间的数 X = (M-N)*rand() + N;
+3. 取不小于 X 的第一个 ID 的行。
+
+我们把这个算法，暂时称作随机算法 1。这里，我直接给你贴一下执行语句的序列:
+
+```sql
+-- 优化方案1
+mysql> select max(id),min(id) into @M,@N from t ;
+set @X= floor((@M-@N+1)*rand() + @N);
+select * from t where id >= @X limit 1;
+
+-- 优化方案2
+mysql> select count(*) into @C from t;
+set @Y = floor(@C * rand());
+set @sql = concat("select * from t limit ", @Y, ",1");
+prepare stmt from @sql;
+execute stmt;
+DEALLOCATE prepare stmt;
+```
+
+
+
+
+
+
+
 
 
 
