@@ -1079,6 +1079,95 @@ execute stmt;
 DEALLOCATE prepare stmt;
 ```
 
+## 6.4 不走索引的情况
+
+### 6.4.1 条件字段函数操作
+
+``` sql
+mysql> select count(*) from tradelog where month(t_modified)=7;
+```
+
+**对索引字段做函数操作，可能会破坏索引值的有序性，因此优化器就决定放弃走树搜索功能。**也就是说，由于在 t_modified 字段加了 month() 函数操作，导致了全索引扫描。为了能够用上索引的快速定位能力，我们就要把 SQL 语句改成基于字段本身的范围查询。按照下面这个写法，优化器就能按照我们预期的，用上 t_modified 索引的快速定位能力了。
+
+```sql
+mysql> select count(*) from tradelog where
+    -> (t_modified >= '2016-7-1' and t_modified<'2016-8-1') or
+    -> (t_modified >= '2017-7-1' and t_modified<'2017-8-1') or 
+    -> (t_modified >= '2018-7-1' and t_modified<'2018-8-1');
+```
+
+当然，如果你的系统上线时间更早，或者后面又插入了之后年份的数据的话，你就需要再把其他年份补齐。
+
+### 6.4.2 隐式类型转换
+
+``` sql
+mysql> select * from tradelog where tradeid=110717;
+```
+
+交易编号 tradeid 这个字段上，本来就有索引，但是 explain 的结果却显示，这条语句需要走全表扫描。你可能也发现了，tradeid 的字段类型是 varchar(32)，而输入的参数却是整型，所以需要做类型转换。
+
+那么，现在这里就有两个问题：
+
+1. 数据类型转换的规则是什么？
+2. 为什么有数据类型转换，就需要走全索引扫描？
+
+先来看第一个问题，你可能会说，数据库里面类型这么多，这种数据类型转换规则更多，我记不住，应该怎么办呢？
+
+这里有一个简单的方法，看 select “10” > 9 的结果：
+
+1. 如果规则是“将字符串转成数字”，那么就是做数字比较，结果应该是 1；
+2. 如果规则是“将数字转成字符串”，那么就是做字符串比较，结果应该是 0。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200819144319.png" style="zoom:50%;" />
+
+从图中可知，select “10” > 9 返回的是 1，所以你就能确认 MySQL 里的转换规则了：在 MySQL 中，字符串和数字做比较的话，是将字符串转换成数字。也就是说，这条语句触发了我们上面说到的规则：对索引字段做函数操作，优化器会放弃走树搜索功能。
+
+``` sql
+mysql> select * from tradelog where  CAST(tradid AS signed int) = 110717;
+```
+
+### 6.4.3 隐式字符编码转换
+
+```sql
+mysql> select d.* from tradelog l, trade_detail d where d.tradeid=l.tradeid and l.id=2; /* 语句 Q1*/
+```
+
+链接两个表的字符集不同，一个是 utf8，一个是 utf8mb4，所以做表连接查询的时候用不上关联字段的索引。字符集 utf8mb4 是 utf8 的超集，所以当这两个类型的字符串在做比较的时候，MySQL 内部的操作是，先把 utf8 字符串转成 utf8mb4 字符集，再做比较。所以查询和下面的 sql 是相同的效果：
+
+``` sql
+select * from trade_detail  where CONVERT(traideid USING utf8mb4)=$L2.tradeid.value; 
+```
+
+CONVERT() 函数，在这里的意思是把输入的字符串转成 utf8mb4 字符集。这就再次触发了我们上面说到的原则：对索引字段做函数操作，优化器会放弃走树搜索功能。
+
+换一种情况：下面这个语句里 trade_detail 表成了驱动表，但是 explain 结果的第二行显示，这次的查询操作用上了被驱动表 tradelog 里的索引 (tradeid)，扫描行数是 1。
+
+```sql
+mysql>select l.operator from tradelog l , trade_detail d where d.tradeid=l.tradeid and d.id=4;
+```
+这时候 $R4.tradeid.value 的字符集是 utf8, 按照字符集转换规则，要转成 utf8mb4，所以这个过程就被改写成：
+```sql
+select operator from tradelog  where traideid =CONVERT($R4.tradeid.value USING utf8mb4);
+```
+
+这里的 CONVERT 函数是加在输入参数上的，这样就可以用上被驱动表的 traideid 索引。
+
+有两种做法解决连表的字符集不同问题：
+
+- 比较常见的优化方法是，把 trade_detail 表上的 tradeid 字段的字符集也改成 utf8mb4，这样就没有字符集转换的问题了。
+
+```sql
+alter table trade_detail modify tradeid varchar(32) CHARACTER SET utf8mb4 default null;
+```
+
+- 如果能够修改字段的字符集的话，是最好不过了。但如果数据量比较大， 或者业务上暂时不能做这个 DDL 的话，那就只能采用修改 SQL 语句的方法了。
+
+```sql
+mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2; 
+```
+
+
+
 
 
 
