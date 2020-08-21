@@ -664,9 +664,9 @@ ALTER TABLE tbl_name WAIT N add column ...
 
 顾名思义，间隙锁，锁的就是两个值之间的空隙。比如文章开头的表 t，初始化插入了 6 个记录，这就产生了 7 个间隙。这样，当你执行 select * from t where d=5 for update 的时候，就不止是给数据库中已有的 6 个记录加上了行锁，还同时加了 7 个间隙锁。这样就确保了无法再插入新的记录。也就是说这时候，在一行行扫描的过程中，不仅将给行加上了行锁，还给行两边的空隙，也加上了间隙锁。
 
-需要注意，如果间隙锁锁在了普通索引上，也就是 where 语句中查询条件是普通索引，而且是在 lock in share mode 模式下，这个时候还是可以更新数据的，但是如果是 for update 就不一样了。 执行 for update 时，系统会认为你接下来要更新数据，因此会顺便给主键索引上满足条件的行加上行锁。
+需要注意，如果间隙锁锁在了普通索引上，也就是 where 语句中查询条件是普通索引，而且是覆盖索引，而且是在 lock in share mode 模式下，这个时候还是可以更新数据的，但是如果是 for update 就不一样了。 执行 for update 时，系统会认为你接下来要更新数据，因此会顺便给主键索引上满足条件的行加上行锁。
 
-这个例子说明，锁是加在索引上的；同时，它给我们的指导是，如果你要用 lock in share mode 来给行加读锁避免数据被更新的话，就必须得绕过覆盖索引的优化，在查询字段中加入索引中不存在的字段。比如，将 session A 的查询语句改成 select d from t where c=5 lock in share mode。你可以自己验证一下效果。
+这个例子说明，锁是加在索引上的；同时，它给我们的指导是，如果你要用 lock in share mode 来给行加读锁避免数据被更新的话，就必须得绕过覆盖索引的优化，在查询字段中加入索引中不存在的字段。比如，将 session A 的查询语句改成 select d from t where c=5 lock in share mode。
 
 ## 4.4 MVCC
 
@@ -1181,6 +1181,30 @@ alter table trade_detail modify tradeid varchar(32) CHARACTER SET utf8mb4 defaul
 ```sql
 mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2; 
 ```
+
+# 七、性能优化
+
+## 7.1 慢查询性能问题
+
+1. 索引没有设计好；
+2. SQL 语句没写好；
+3. MySQL 选错了索引。
+
+**导致慢查询的第一种可能是，索引没有设计好。**这种场景一般就是通过紧急创建索引来解决。MySQL 5.6 版本以后，创建索引都支持 Online DDL 了，对于那种高峰期数据库已经被这个语句打挂了的情况，最高效的做法就是直接执行 alter table 语句。或者通过切换主库、从库的方式创建索引。
+
+**语句没写好** 和 **选错索引**可以通过分析执行过程优化 sql 解决。
+
+## 7.2 QPS 突增问题
+
+有时候由于业务突然出现高峰，或者应用程序 bug，导致某个语句的 QPS 突然暴涨，也可能导致 MySQL 压力过大，影响服务。
+
+## 7.3 短连接风暴
+
+**第一种方法：先处理掉那些占着连接但是不工作的线程。**
+
+**第二种方法：减少连接过程的消耗。**
+
+
 
 
 
