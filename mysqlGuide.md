@@ -1182,6 +1182,10 @@ alter table trade_detail modify tradeid varchar(32) CHARACTER SET utf8mb4 defaul
 mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2; 
 ```
 
+## 6.5 binglog
+binlog 的写入逻辑比较简单：事务执行过程中，先把日志写到 binlog cache，事务提交的时候，再把 binlog cache 写到 binlog 文件中。一个事务的 binlog 是不能被拆开的，因此不论这个事务多大，也要确保一次性写入。这就涉及到了 binlog cache 的保存问题。系统给 binlog cache 分配了一片内存，每个线程一个，参数 binlog_cache_size 用于控制单个线程内 binlog cache 所占内存的大小。如果超过了这个参数规定的大小，就要暂存到磁盘。
+
+
 # 七、性能优化
 
 ## 7.1 慢查询性能问题
@@ -1203,6 +1207,12 @@ mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tra
 **第一种方法：先处理掉那些占着连接但是不工作的线程。**max_connections 的计算，不是看谁在 running，是只要连着就占用一个计数位置。对于那些不需要保持的连接，我们可以通过 kill connection 主动踢掉。这个行为跟事先设置 wait_timeout 的效果是一样的。设置 wait_timeout 参数表示的是，一个线程空闲 wait_timeout 这么多秒之后，就会被 MySQL 直接断开连接。使用 show processlist 的结果里，踢掉显示为 sleep 的线程，但是这种操作是有损的。
 
 **第二种方法：减少连接过程的消耗。**有的业务代码会在短时间内先大量申请数据库连接做备用，如果现在数据库确认是被连接行为打挂了，那么一种可能的做法，是让数据库跳过权限验证阶段。跳过权限验证的方法是：重启数据库，并使用–skip-grant-tables 参数启动。这样，整个 MySQL 会跳过所有的权限验证阶段，包括连接过程和语句执行过程在内。但是，这种方法特别符合我们标题里说的“饮鸩止渴”，风险极高。
+
+
+
+
+
+
 
 
 
