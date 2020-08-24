@@ -290,6 +290,25 @@ InnoDB有一个有趣的策略，一旦一个查询请求需要在执行过程�
 
 简单说，redo log 和 binlog 都可以用于表示事务的提交状态，而两阶段提交就是让这两个状态保持逻辑上的一致。
 
+### 1.6.1 binglog 执行过程
+
+binlog 的写入逻辑比较简单：事务执行过程中，先把日志写到 binlog cache，事务提交的时候，再把 binlog cache 写到 binlog 文件中。一个事务的 binlog 是不能被拆开的，因此不论这个事务多大，也要确保一次性写入。这就涉及到了 binlog cache 的保存问题。系统给 binlog cache 分配了一片内存，每个线程一个，参数 binlog_cache_size 用于控制单个线程内 binlog cache 所占内存的大小。如果超过了这个参数规定的大小，就要暂存到磁盘。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200824192105.png" style="zoom:33%;" />
+
+可以看到，每个线程有自己 binlog cache，但是共用同一份 binlog 文件。
+
+- 图中的 write，指的就是指把日志写入到文件系统的 page cache，并没有把数据持久化到磁盘，所以速度比较快。
+- 图中的 fsync，才是将数据持久化到磁盘的操作。一般情况下，我们认为 fsync 才占磁盘的 IOPS。
+
+write 和 fsync 的时机，是由参数 sync_binlog 控制的：
+
+1. sync_binlog=0 的时候，表示每次提交事务都只 write，不 fsync；
+2. sync_binlog=1 的时候，表示每次提交事务都会执行 fsync；
+3. sync_binlog=N(N>1) 的时候，表示每次提交事务都 write，但累积 N 个事务后才 fsync。
+
+
+
 # 二、事务
 
 简单来说，事务就是要保证一组数据库操作，要么全部成功，要么全部失败。在 MySQL 中，事务支持是在引擎层实现的。你现在知道，MySQL 是一个支持多引擎的系统，但并不是所有的引擎都支持事务。比如 MySQL 原生的 MyISAM 引擎就不支持事务，这也是 MyISAM 被 InnoDB 取代的重要原因之一。
@@ -1181,10 +1200,6 @@ alter table trade_detail modify tradeid varchar(32) CHARACTER SET utf8mb4 defaul
 ```sql
 mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2; 
 ```
-
-## 6.5 binglog
-binlog 的写入逻辑比较简单：事务执行过程中，先把日志写到 binlog cache，事务提交的时候，再把 binlog cache 写到 binlog 文件中。一个事务的 binlog 是不能被拆开的，因此不论这个事务多大，也要确保一次性写入。这就涉及到了 binlog cache 的保存问题。系统给 binlog cache 分配了一片内存，每个线程一个，参数 binlog_cache_size 用于控制单个线程内 binlog cache 所占内存的大小。如果超过了这个参数规定的大小，就要暂存到磁盘。
-
 
 # 七、性能优化
 
