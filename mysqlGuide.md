@@ -1273,3 +1273,7 @@ mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tra
 
 
 
+
+
+
+
