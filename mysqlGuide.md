@@ -1233,6 +1233,47 @@ alter table trade_detail modify tradeid varchar(32) CHARACTER SET utf8mb4 defaul
 ```sql
 mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2; 
 ```
+## 6.5 MySQL主备
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831192342.png" style="zoom:33%;" />
+
+在状态 1 中，客户端的读写都直接访问节点 A，而节点 B 是 A 的备库，只是将 A 的更新都同步过来，到本地执行。这样可以保持节点 B 和 A 的数据是相同的。当需要切换的时候，就切成状态 2。这时候客户端读写访问的都是节点 B，而节点 A 是 B 的备库。在状态 1 中，虽然节点 B 没有被直接访问，但是我依然建议你把节点 B（也就是备库）设置成只读（readonly）模式。这样做，有以下几个考虑：
+
+1. 有时候一些运营类的查询语句会被放到备库上去查，设置为只读可以防止误操作；
+2. 防止切换逻辑有 bug，比如切换过程中出现双写，造成主备不一致；
+3. 可以用 readonly 状态，来判断节点的角色。
+
+接下来，我们再看看**节点 A 到 B 这条线的内部流程是什么样的**。图 2 中画出的就是一个 update 语句在节点 A 执行，然后同步到节点 B 的完整流程图。
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831192605.png" style="zoom:33%;" />
+
+备库 B 跟主库 A 之间维持了一个长连接。主库 A 内部有一个线程，专门用于服务备库 B 的这个长连接。一个事务日志同步的完整过程是这样的：
+
+1. 在备库 B 上通过 change master 命令，设置主库 A 的 IP、端口、用户名、密码，以及要从哪个位置开始请求 binlog，这个位置包含文件名和日志偏移量。
+2. 在备库 B 上执行 start slave 命令，这时候备库会启动两个线程，就是图中的 io_thread 和 sql_thread。其中 io_thread 负责与主库建立连接。
+3. 主库 A 校验完用户名、密码后，开始按照备库 B 传过来的位置，从本地读取 binlog，发给 B。
+4. 备库 B 拿到 binlog 后，写到本地文件，称为中转日志（relay log）。
+5. sql_thread 读取中转日志，解析出日志里的命令，并执行。
+
+### 6.5.1 binlog 的三种格式
+
+binlog 有三种格式，一种是 statement，一种是 row，第三种格式，叫作 mixed，其实它就是前两种格式的混合。
+
+- statement 格式下，记录到 binlog 里的是语句原文，因此可能会出现这样一种情况：在主库执行这条 SQL 语句的时候，用的是索引 a；而在备库执行这条 SQL 语句的时候，却使用了索引 t_modified。因此，MySQL 认为这样写是有风险的。因为statement 格式的 binlog 可能会导致主备不一致，
+- 使用 row 格式的时候，binlog 里面记录了真实删除行的主键 id，这样 binlog 传到备库去的时候，就肯定会删除 id=4 的行，不会有主备删除不同行的问题，但是row 格式的缺点是，很占空间。比如你用一个 delete 语句删掉 10 万行数据，用 statement 的话就是一个 SQL 语句被记录到 binlog 中，占用几十个字节的空间。但如果用 row 格式的 binlog，就要把这 10 万条记录都写到 binlog 中。这样做，不仅会占用更大的空间，同时写 binlog 也要耗费 IO 资源，影响执行速度。
+- MySQL 就取了个折中方案，也就是有了 mixed 格式的 binlog。mixed 格式的意思是，MySQL 自己会判断这条 SQL 语句是否可能引起主备不一致，如果有可能，就用 row 格式，否则就用 statement 格式。也就是说，mixed 格式可以利用 statment 格式的优点，同时又避免了数据不一致的风险。
+
+### 6.5.2 循环复制问题
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831195913.png" style="zoom:33%;" />
+
+上图为互为主备的架构，也叫双M架构，是实际中使用比较多的结构，双 M 结构和 M-S 结构，其实区别只是多了一条线，即：节点 A 和 B 之间总是互为主备关系。这样在切换的时候就不用再修改主备关系。
+
+但是，双 M 结构还有一个问题需要解决。业务逻辑在节点 A 上更新了一条语句，然后再把生成的 binlog 发给节点 B，节点 B 执行完这条更新语句后也会生成 binlog。（我建议你把参数 log_slave_updates 设置为 on，表示备库执行 relay log 后生成 binlog）。那么，如果节点 A 同时是节点 B 的备库，相当于又把节点 B 新生成的 binlog 拿过来执行了一次，然后节点 A 和 B 间，会不断地循环执行这个更新语句，也就是循环复制了。解决方案如下：
+
+1. 规定两个库的 server id 必须不同，如果相同，则它们之间不能设定为主备关系；
+2. 一个备库接到 binlog 并在重放的过程中，生成与原 binlog 的 server id 相同的新的 binlog；
+3. 每个库在收到从自己的主库发过来的日志后，先判断 server id，如果跟自己的相同，表示这个日志是自己生成的，就直接丢弃这个日志。
+
 
 # 七、性能优化
 
