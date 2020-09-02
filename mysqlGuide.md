@@ -1387,6 +1387,81 @@ MySQL 5.5 版本加入了按表分发策略，如果两个事务更新不同的�
 
 但是，如果你的主库上的表都放在同一个 DB 里面，这个策略就没有效果了；或者如果不同 DB 的热点不同，比如一个是业务逻辑库，一个是系统配置库，那也起不到并行的效果。理论上你可以创建不同的 DB，把相同热度的表均匀分到这些不同的 DB 中，强行使用这个策略。不过据我所知，由于需要特地移动数据，这个策略用得并不多。
 
+MariaDB 的并行复制策略利用了组提交 (group commit) ，的特性：
+
+1. 能够在同一组里提交的事务，一定不会修改同一行；
+2. 主库上可以并行执行的事务，备库上也一定是可以并行执行的。
+
+在实现上，MariaDB 是这么做的：
+
+1. 在一组里面一起提交的事务，有一个相同的 commit_id，下一组就是 commit_id+1；
+2. commit_id 直接写到 binlog 里面；
+3. 传到备库应用的时候，相同 commit_id 的事务分发到多个 worker 执行；
+4. 这一组全部执行完成后，coordinator 再去取下一批。
+
+## 6.6 Mysql 主从
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200902202505.png" style="zoom: 33%;" />
+
+如图所示， A 和 A’ 互为主备，从库 B、C、D 指向的是主库 A。一主多从的设置，一般用于读写分离，主库负责所有的写入和一部分读，其他的读请求则由从库分担。此时如果主库 A 出现问题，A’ 会成为新的主库，从库 B、C、D 也要改接到 A’。正是由于多了从库 B、C、D 重新指向的这个过程，所以主备切换的复杂性也相应增加了。
+
+### 6.6.1 基于位点的主备切换
+
+当我们把节点 B 设置成节点 A’的从库的时候，需要执行一条 change master 命令：
+
+``` properties
+CHANGE MASTER TO 
+MASTER_HOST=$host_name 
+MASTER_PORT=$port 
+MASTER_USER=$user_name 
+MASTER_PASSWORD=$password 
+MASTER_LOG_FILE=$master_log_name 
+MASTER_LOG_POS=$master_log_pos  
+```
+
+最后两个参数 MASTER_LOG_FILE 和 MASTER_LOG_POS 表示，要从主库的 master_log_name 文件的 master_log_pos 这个位置的日志继续同步。而这个位置就是我们所说的同步位点，也就是主库对应的文件名和日志偏移量。那么，这里就有一个问题了，节点 B 要设置成 A’的从库，就要执行 change master 命令，就不可避免地要设置位点的这两个参数，但是这两个参数到底应该怎么设置呢？
+
+一种取同步位点的方法是这样的：
+
+1. 等待新主库 A’把中转日志（relay log）全部同步完成；
+2. 在 A’上执行 show master status 命令，得到当前 A’上最新的 File 和 Position；
+3. 取原主库 A 故障的时刻 T；
+4. 用 mysqlbinlog 工具解析 A’的 File，得到 T 时刻的位点。
+
+``` shell
+mysqlbinlog File --stop-datetime=T --start-datetime=T
+```
+
+<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200902203405.png" style="zoom:50%;" />
+
+图中，end_log_pos 后面的值“123”，表示的就是 A’这个实例，在 T 时刻写入新的 binlog 的位置。然后，我们就可以把 123 这个值作为 $master_log_pos ，用在节点 B 的 change master 命令里。当然这个值并不精确。你可以设想有这么一种情况，假设在 T 这个时刻，主库 A 已经执行完成了一个 insert 语句插入了一行数据 R，并且已经将 binlog 传给了 A’和 B，然后在传完的瞬间主库 A 的主机就掉电了。
+
+那么，这时候系统的状态是这样的：
+
+1. 在从库 B 上，由于同步了 binlog， R 这一行已经存在；
+2. 在新主库 A’上， R 这一行也已经存在，日志是写在 123 这个位置之后的；
+3. 我们在从库 B 上执行 change master 命令，指向 A’的 File 文件的 123 位置，就会把插入 R 这一行数据的 binlog 又同步到从库 B 去执行。
+
+这时候，从库 B 的同步线程就会报告 Duplicate entry ‘id_of_R’ for key ‘PRIMARY’ 错误，提示出现了主键冲突，然后停止同步。
+
+**一种做法是**，主动跳过一个事务。**另外一种方式是，**通过设置 slave_skip_errors 参数，直接设置跳过指定的错误。
+
+### 6.6.2 GTID
+
+MySQL 5.6 版本引入了 GTID，彻底解决了主从同步的问题。GTID 的全称是 Global Transaction Identifier，也就是全局事务 ID，是一个事务在提交的时候生成的，是这个事务的唯一标识。它由两部分组成，格式是：`GTID=server_uuid:gno` MySQL 的官方文档里，GTID 格式是这么定义的：`GTID=source_id:transaction_id` 我们常说的 transaction_id 就是指事务 id，为了避免混淆我这用过了 gno 代替，事务 id 是在事务执行过程中分配的，而 gno 是在事务提交的时候才会分配。
+
+- server_uuid 是一个实例第一次启动时自动生成的，是一个全局唯一的值；
+- gno 是一个整数，初始值是 1，每次提交事务的时候分配给这个事务，并加 1。
+
+在 GTID 模式下，每个事务都会跟一个 GTID 一一对应。这个 GTID 有两种生成方式，而使用哪种方式取决于 session 变量 gtid_next 的值。
+
+1. 如果 gtid_next=automatic，代表使用默认值。这时，MySQL 就会把 server_uuid:gno 分配给这个事务。
+   a. 记录 binlog 的时候，先记录一行 SET @@SESSION.GTID_NEXT=‘server_uuid:gno’;
+   b. 把这个 GTID 加入本实例的 GTID 集合。
+2. 如果 gtid_next 是一个指定的 GTID 的值，比如通过 set gtid_next='current_gtid’指定为 current_gtid，那么就有两种可能：
+   a. 如果 current_gtid 已经存在于实例的 GTID 集合中，接下来执行的这个事务会直接被系统忽略；
+   b. 如果 current_gtid 没有存在于实例的 GTID 集合中，就将这个 current_gtid 分配给接下来要执行的事务，也就是说系统不需要给这个事务生成新的 GTID，因此 gno 也不用加 1。
+
 
 
 # 七、性能优化
