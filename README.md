@@ -1,22 +1,18 @@
-# javaGuide
-学习java积累手册，包含Java基础知识、java集合、jvm、多线程，各种疑难杂症
-地址：https://github.com/onlinelei/javaGuide/blob/master/javaGuide.md
+#Java Guide
 
-# mySqlGuide
-mysql 知识宝库
-地址：https://github.com/onlinelei/javaGuide/blob/master/mysqlGuide.md
+这个仓库记录了使用 Java 语言的后端程序员必备技能，以及计算机基础知识，和各种组建运用。是工作、学习的必备手册。
 
-# springGuide
-spring知识的学习
-地址：https://github.com/onlinelei/javaGuide/blob/master/springGuide.md
+Java：https://github.com/onlinelei/javaGuide/blob/master/javaGuide.md
 
-# 算法面试宝典
-常用算法列举、常考算法的总结归纳
-地址：https://github.com/onlinelei/javaGuide/blob/master/arithmeticGuide.md
+mysql：https://github.com/onlinelei/javaGuide/blob/master/mysqlGuide.md
 
+spring：https://github.com/onlinelei/javaGuide/blob/master/springGuide.md
 
+算法：https://github.com/onlinelei/javaGuide/blob/master/arithmeticGuide.md
 
+docker：https://github.com/onlinelei/javaGuide/blob/master/dockerGuide.md
 
+大数据：https://github.com/onlinelei/javaGuide/blob/master/bigDataGuide.md
 
 **关于夯实 Java 编程基础，我推荐 Bruce Eckel 的《Java 编程思想》（Thinking in Java）**，非常有名的经典书籍。这本书的特点是，不仅仅介绍 Java 编程的基础知识点，也会思考编程中的各种选择与判断，包括穿插设计模式的使用，作者从理论到实践意义从不同的角度进行探讨，构建稳固的 Java 编程知识体系。
 
