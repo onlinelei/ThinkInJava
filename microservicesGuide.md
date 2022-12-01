@@ -57,7 +57,7 @@
 
 下面这张图是我根据自己的经验，绘制的微服务架构的模块图，在具体介绍之前先来看下一次正常的服务调用的流程。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200805161943.png" style="zoom:50%;" />
+<img src="img/20200805161943.png" style="zoom:50%;" />
 
 首先服务提供者（就是提供服务的一方）按照一定格式的服务描述，向注册中心注册服务，声明自己能够提供哪些服务以及服务的地址是什么，完成服务发布。
 
@@ -82,7 +82,7 @@
 - XML 配置方式多用作 RPC 协议的服务描述，通过 *.xml 配置文件来定义接口名、参数以及返回值类型等。
 - IDL 文件方式通常用作 Thrift 和 gRPC 这类跨语言服务调用框架中，比如 gRPC 就是通过 Protobuf 文件来定义服务的接口名、参数以及返回值的数据结构
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200805164552.png" style="zoom:50%;" />
+<img src="img/20200805164552.png" style="zoom:50%;" />
 
 ## 3.2 注册中心
 
@@ -95,7 +95,7 @@
 - 注册中心返回服务提供者地址列表给服务消费者。
 - 当服务提供者发生变化，比如有节点新增或者销毁，注册中心将变更通知给服务消费者。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200805162503.png" style="zoom:50%;" />
+<img src="img/20200805162503.png" style="zoom:50%;" />
 
 在微服务架构下，主要有三种角色：服务提供者（RPC Server）、服务消费者（RPC Client）和服务注册中心（Registry），三者的交互关系如下：
 
@@ -129,7 +129,7 @@
 
 通过上面这种方式，ZooKeeper 保证了高可用性以及数据一致性。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200805170457.png" style="zoom:50%;" />
+<img src="img/20200805170457.png" style="zoom:50%;" />
 
 ### 3.2.3 目录存储
 
@@ -226,7 +226,7 @@
 
 接下来我就结合下面这张图，给你介绍一下一个微服务治理平台应该具备哪些基本功能。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200808180644.png" style="zoom:50%;" />
+<img src="img/20200808180644.png" style="zoom:50%;" />
 
 **1. 服务管理**
 
@@ -300,7 +300,7 @@
 
 HTTP 通信是基于应用层 HTTP 协议的，而 HTTP 协议又是基于传输层 TCP 协议的。一次 HTTP 通信过程就是发起一次 HTTP 调用，而一次 HTTP 调用就会建立一个 TCP 连接，经历一次下图所示的“三次握手”的过程来建立连接。完成请求后，再经历一次“四次挥手”的过程来断开连接。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806112722.png" style="zoom:33%;" /><img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806112742.png" style="zoom:33%;" />
+<img src="img/20200806112722.png" style="zoom:33%;" /><img src="img/20200806112742.png" style="zoom:33%;" />
 
 ### 4.1.2 Socket 通信
 Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少需要一对套接字，其中一个运行于客户端，称为 ClientSocket ；另一个运行于服务器端，称为 ServerSocket 。就像下图所描述的，Socket 通信的过程分为四个步骤：服务器监听、客户端请求、连接确认、数据传输。
@@ -311,7 +311,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 数据传输：当 ClientSocket 和 ServerSocket 建立连接后，ClientSocket 调用 send() 函数，ServerSocket 调用 receive() 函数，ServerSocket 处理完请求后，调用 send() 函数，ClientSocket 调用 receive() 函数，就可以得到得到返回结果。
 直接理解可能有点抽象，你可以把这个过程套入前面我举的“打电话”的例子，可以方便你理解 Socket 通信过程。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806113333.png" style="zoom:50%;" />
+<img src="img/20200806113333.png" style="zoom:50%;" />
 
 当客户端和服务端建立网络连接后，就可以发起请求了。但网络不一定总是可靠的，经常会遇到网络闪断、连接超时、服务端宕机等各种异常，通常的处理手段有两种。
 
@@ -425,7 +425,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 
 下面这张图描述了用户访问微博首页，一次请求所涉及的服务（这张图仅作为示意，实际上可能远远比这张图还要复杂），你可以想象如果这次请求失败了，要想查清楚到底是哪个应用导致，会是多么复杂的一件事情。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806182330.png" style="zoom:33%;" />
+<img src="img/20200806182330.png" style="zoom:33%;" />
 
 ## 6.1 服务追踪的作用
 
@@ -461,7 +461,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 
 要理解服务追踪的原理，首先必须搞懂一些基本概念：traceId、spanId、annonation 等。首先看下面这张图，我来给你讲解下服务追踪系统中几个最基本概念。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806183338.png" style="zoom: 33%;" />
+<img src="img/20200806183338.png" style="zoom: 33%;" />
 
 - traceId，用于标识某一次具体的请求 ID。当用户的请求进入系统后，会在 RPC 调用网络的第一层生成一个全局唯一的 traceId，并且会随着每一层的 RPC 调用，不断往后传递，这样的话通过 traceId 就可以把一次用户请求在系统中调用的路径串联起来。
 - spanId，用于标识一次 RPC 调用在分布式请求中的位置。当用户的请求进入系统后，处在 RPC 调用网络的第一层 A 时 spanId 初始值是 0，进入下一层 RPC 调用 B 的时候 spanId 是 0.1，继续进入下一层 RPC 调用 C 时 spanId 是 0.1.1，而与 B 处在同一层的 RPC 调用 E 的 spanId 是 0.2，这样的话通过 spanId 就可以定位某一次 RPC 请求在系统调用中所处的位置，以及它的上下游依赖分别是谁。
@@ -474,7 +474,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 
 我们先来看看服务追踪系统的架构，让你了解一下系统全貌。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806183558.png" style="zoom:33%;" />
+<img src="img/20200806183558.png" style="zoom:33%;" />
 
 上面是服务追踪系统架构图，你可以看到一个服务追踪系统可以分为三层。
 
@@ -490,7 +490,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 
 那么该如何进行数据埋点呢？结合下面这张图来了解一下数据埋点的流程。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806184246.png" style="zoom:33%;" />
+<img src="img/20200806184246.png" style="zoom:33%;" />
 
 以红色方框里圈出的 A 调用 B 的过程为例，一次 RPC 请求可以分为四个阶段。
 
@@ -499,7 +499,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 - SS（Server Send）阶段 : 服务端返回请求，这个阶段会将服务端上下文数据上报，下面这张图可以说明上报的数据有：traceId=123456，spanId=0.1，appKey=B，method=B.method，start=103，duration=38。
 - CR（Client Recieve）阶段 : 客户端接收返回结果，这个阶段会将客户端上下文数据上报，上报的数据有：traceid=123456，spanId=0.1，appKey=A，method=B.method，start=103，duration=38。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806184606.png" style="zoom: 33%;" />
+<img src="img/20200806184606.png" style="zoom: 33%;" />
 
 ### 6.3.2. 数据处理层
 
@@ -531,7 +531,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 
 **每一层的情况**：每一层发生了几次调用，以及每一层调用的耗时。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806185203.png" style="zoom:33%;" />
+<img src="img/20200806185203.png" style="zoom:33%;" />
 
 根据我的经验，调用链路图在实际项目中，主要是被用来做故障定位，比如某一次用户调用失败了，可以通过调用链路图查询这次用户调用经过了哪些环节，到底是哪一层的调用失败所导致。
 
@@ -539,7 +539,7 @@ Socket 通信是基于 TCP/IP 协议的封装，建立一次 Socket 连接至少
 
 下面是一张 Pinpoint 的调用拓扑图，通过这张图可以看出系统内都包含哪些应用，它们之间是什么关系，以及依赖调用的 QPS、平均耗时情况。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200806185426.png" style="zoom:33%;" />
+<img src="img/20200806185426.png" style="zoom:33%;" />
 
 调用拓扑图是一种全局视野图，在实际项目中，主要用作全局监控，用于发现系统中异常的点，从而快速做出决策。比如，某一个服务突然出现异常，那么在调用链路拓扑图中可以看出对这个服务的调用耗时都变高了，可以用红色的图样标出来，用作监控报警。
 
@@ -815,13 +815,13 @@ RPC 框架主要有三部分组成：通信框架、通信协议、序列化和�
 
 - Half Open 状态：当断路器开启后，每隔一段时间，会进入半打开状态，这时候会向服务提供者发起探测调用，以确定服务提供者是否恢复正常。如果调用成功了，断路器就关闭；如果没有成功，断路器就继续保持开启状态，并等待下一个周期重新进入半打开状态。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200808174156.png" style="zoom:50%;" />
+<img src="img/20200808174156.png" style="zoom:50%;" />
 
 关于断路器的实现，最经典也是使用最广泛的莫过于 Netflix 开源的 Hystrix 了，Hystrix 通过滑动窗口来对数据进行统计，默认情况下，滑动窗口包含 10 个桶，每个桶时间宽度为 1 秒，每个桶内记录了这 1 秒内所有服务调用中成功的、失败的、超时的以及被线程拒绝的次数。当新的 1 秒到来时，滑动窗口就会往前滑动，丢弃掉最旧的 1 个桶，把最新 1 个桶包含进来。
 
 任意时刻，Hystrix 都会取滑动窗口内所有服务调用的失败率作为断路器开关状态的判断依据，这 10 个桶内记录的所有失败的、超时的、被线程拒绝的调用次数之和除以总的调用次数就是滑动窗口内所有服务的调用的失败率。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200808174708.png" style="zoom:50%;" />
+<img src="img/20200808174708.png" style="zoom:50%;" />
 
 # 十、容器化
 
@@ -863,14 +863,14 @@ Docker 官方提供了一个镜像仓库地址：https://hub.docker.com/，对�
 
 Harbor 所采取的主从复制的方案是，把镜像传到一个主镜像仓库实例上去，然后其他从镜像仓库实例都从主镜像仓库实例同步，它的实现就像下图所描述的一样。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200808191902.png" style="zoom:50%;" />
+<img src="img/20200808191902.png" style="zoom:50%;" />
 
 除此之外，Harbor 还支持层次型的发布方式，如果集群部署在多个 IDC，可以先从一个主 IDC 的镜像仓库同步到其他从 IDC 的镜像仓库，再从各个从 IDC 同步给下面的分 IDC。
 
 ### 10.1.3 高可用性
 既然 Docker 镜像是 Docker 容器运行的基础，那么镜像仓库的高可用性就不言而喻了。一般而言，高可用性设计无非就是把服务部署在多个 IDC，这样的话即使有 IDC 出问题，也可以把服务迁移到别的正常 IDC 中去。同样对于镜像仓库的搭建，也可以采用多 IDC 部署，那么需要做到的就是不同 IDC 之间的镜像同步。以微博的镜像仓库为例，就像下图所描述的那样，镜像仓库会部署在永丰、土城两个内网 IDC 内，两个 IDC 内的镜像同步采用 Harbor 的双主复制策略，互相复制镜像，这样的话即使有一个 IDC 出现问题，另外一个 IDC 仍然能够提供服务，而且不丢失数据。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200808192548.png" style="zoom:50%;" />
+<img src="img/20200808192548.png" style="zoom:50%;" />
 
 ### 10.1.4 资源调度
 
@@ -976,7 +976,7 @@ Docker Compose 这种通过 yaml 文件来进行服务编排的方式是比较�
 
 没错，DevOps 的思想正是如此。在我看来，DevOps 是一种新型的业务研发流程，业务的开发人员不仅需要负责业务代码的开发，还需要负责业务的测试以及上线发布等全生命周期，真正做到掌控服务全流程。DevOps 就是下图中心的部分，集开发、测试和运维三者角色于一体。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809194334.png" style="zoom:50%;" />
+<img src="img/20200809194334.png" style="zoom:50%;" />
 
 而要实现 DevOps，就必须开发完成代码开发后，能自动进行测试，测试通过后，能自动发布到线上。对应的这两个过程就是 CI 和 CD，具体来讲就是：
 
@@ -989,7 +989,7 @@ Docker Compose 这种通过 yaml 文件来进行服务编排的方式是比较�
 
 想要实现服务部署到多机房供用户访问是有前提的，这个前提是每个机房的数据都是一样的，用户访问哪个机房都可以获取到一样的数据，这就要求多个机房之间的数据必须保持同步。对于微博这种高并发访问的服务来说，数据通常都会有两层存储即缓存层和数据库层，就像下图所展示的。缓存层是为了存储用户经常访问的数据，尤其是在高并发访问下可以用缓存 cache 住绝大多数用户请求，减少对数据库层的压力，这是因为数据库层要直接访问磁盘，相比缓存层直接访问内存来说，响应要慢得多。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809200639.png" style="zoom:50%;" />
+<img src="img/20200809200639.png" style="zoom:50%;" />
 
 如此一来，要保证多个机房的数据一致，不仅要保证数据库层的数据一致，还需要保证缓存层的数据一致，应该如何实现呢？
 
@@ -997,7 +997,7 @@ Docker Compose 这种通过 yaml 文件来进行服务编排的方式是比较�
 
 主从机房数据同步方案如下图所示。主从机房架构是以一个机房为主机房，所有的写请求都只发给主机房的处理机，由主机房的处理机来更新本机房的缓存和数据库，其他机房的缓存也通过主机房的处理机来更新，而数据库则通过 MySQL 的 binlog 同步机制的方式实现数据同步。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809200736.png" style="zoom:50%;" />
+<img src="img/20200809200736.png" style="zoom:50%;" />
 
 上面这种架构把所有的写请求都发给主机房，由主机房来负责写所有机房的缓存和本机房的数据库，而其他机房的数据库则通过 MySQL 的 binlog 同步机制实现数据同步。显然这样做有一个很大的风险，那就是如果主机房出现问题，就没法更新缓存和数据库了，所以就有了第二种方案。
 
@@ -1005,7 +1005,7 @@ Docker Compose 这种通过 yaml 文件来进行服务编排的方式是比较�
 
 这种架构的数据同步方案如下图所示，联通和电信机房都有写请求，并通过一个叫 WMB 的消息同步组件把各自机房的写请求同步一份给对方机房，这样的话相当于每个机房都有全量的写请求。每个机房的处理机接收到写请求后更新各自机房的缓存，只有一个机房会更新数据库，其他机房的数据库通过 MySQL 的 binlog 同步机制实现数据同步。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809200839.png" style="zoom:50%;" />
+<img src="img/20200809200839.png" style="zoom:50%;" />
 
 独立机房架构相比于主从机房架构的优势在于任意一个机房出现问题，都不影响别的机房的数据更新，因为每个机房的写消息都是全量的，所以每个机房可以更新自己的缓存，并从数据库主库同步数据。其实独立机房架构的关键点在于 WMB 消息同步组件，它可以把各个机房之间的写请求进行同步。下面我就详细讲讲 WMB 消息同步组建是如何实现的。
 
@@ -1014,7 +1014,7 @@ WMB 消息同步组件的功能就是把一个机房的写请求发给另外一�
 - reship，负责把本机房的写请求分发一份给别的机房。
 - collector，负责从别的机房读取写请求，然后再把请求转发给本机房的处理机。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809200939.png" style="zoom:50%;" />
+<img src="img/20200809200939.png" style="zoom:50%;" />
 
 那么该如何实现 WMB 的消息同步功能呢？根据我的实践经验，主要有两种方案，一种是通过 MCQ 消息队列，一种是通过 RPC 调用。
 
@@ -1022,13 +1022,13 @@ WMB 消息同步组件的功能就是把一个机房的写请求发给另外一�
 
 下面这张图是采用 MCQ 消息队列的实现方案，从图中你可以看到联通机房的写请求写入到联通机房的 MCQ 里，然后联通机房的 reship 就从联通机房的 MCQ 里读取，再写入到电信机房的 MCQ 里，电信机房的 collector 就可以从电信机房的 MCQ 里读取到写请求，再写入到电信机房的另外一个 MCQ 里，电信机房的队列机就会从这个 MCQ 里读取写请求，然后更新缓存。可见采用这种方案的一个缺点是流程比较长，需要多次与 MCQ 消息队列打交道，当有大量写请求到来时，不仅要扩容 reship 和 collector 确保有足够的处理能力，还需要扩容 MCQ 消息队列以确保能够承受大量读取和写入，一种更加简单的方案是采用 RPC 调用来实现。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809201005.png" style="zoom:50%;" />
+<img src="img/20200809201005.png" style="zoom:50%;" />
 
 - RPC 调用实现
 
 下面这张图是采用 RPC 调用的实现方案，从图中你可以看到联通机房的写请求会调用联通机房的 reship RPC，然后联通机房的 reship RPC 就会调用电信机房的 collector RPC，这样电信机房的 collector RPC 就会调用电信机房的处理机 RPC，从而实现把联通机房的写请求同步给电信机房的处理机进行处理。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809201031.png" style="zoom:50%;" />
+<img src="img/20200809201031.png" style="zoom:50%;" />
 
 ## 12.2 多机房数据一致性
 
@@ -1036,21 +1036,21 @@ WMB 消息同步组件的功能就是把一个机房的写请求发给另外一�
 
 你可以先看下面这张图，系统会给每一次写请求生成一个全局唯一的 requestId，联通机房的写请求一方面会调用联通机房的处理机 RPC 来修改缓存和数据库，另一方面还会调用联通机房的 reship RPC，reship RPC 再调用电信机房的 collector RPC 来同步写请求，电信机房的 collector RPC 最后会调用电信机房的处理 RPC 来更新缓存。在这整个过程的每一个环节，requestId 始终保持向下传递，无论是处理成功或者失败都记录一条包含 requestId 和机房标记的处理日志，并写到 Elasticsearch 集群上去。然后通过一个定时线程，每隔 1 分钟去扫描 Elasticsearch 集群上的日志，找出包含同一个 requestId 的不同机房的处理日志，然后验证是否在各个机房请求都处理成功了，如果有的机房某一阶段处理失败，则可以根据日志信息重试该阶段直到成功，从而保证数据的最终一致性。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809201233.png" style="zoom:50%;" />
+<img src="img/20200809201233.png" style="zoom:50%;" />
 
 ## 12.3 私有云与公有云之间的网络隔离
 
 一般来讲，出于安全的需要，企业内部机房同公有云机房之间的网络是隔离的，为了实现互通，需要架设专门的 VPN 网络或者专线，就像下图描述的，微博在内部私有云和阿里云之间搭建了两条跨云专线，分别打通了内部的联通、电信机房与阿里云的联通、电信可用区，这样的话不仅实现了私有云和公有云之间的网络互动，双专线也保证了高可用性，即使一条专线断了，也可以通过另外一条专线实现数据同步。不过这样做需要保证专线的冗余度充足，任何一根专线的带宽能够承担所有跨云的流量，否则就很危险了，因为一旦一根专线断了，所有流量都通过另外一根专线的话，就会把专线打满，出现网络延迟影响服务。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809204839.png" style="zoom:50%;" />
+<img src="img/20200809204839.png" style="zoom:50%;" />
 
 数据库能否上云的关键取决于数据的隐私性。一般而言，企业都会考虑数据库里的数据放在公有云上是否安全，因为企业内部私有云部署的数据库与外网隔离，再加上有种种防护措施，一般情况下不会出现数据库数据外泄情况。而公有云厂商普遍采用了虚拟化技术，不同公司的虚拟机有可能部署在同一台物理机上，所以能否实现有效的数据隔离非常关键，尤其对于企业的核心业务数据，往往会出于安全隐私的考虑，并不敢直接放到云上部署。考虑到这一点，微博的服务在阿里云部署时，并没有部署数据库，只部署了缓存，当缓存穿透时需要访问内网数据库，你可以参考下面这张图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809204952.png" style="zoom: 33%;" />
+<img src="img/20200809204952.png" style="zoom: 33%;" />
 
 综合上面两点考虑，微博在做跨云数据同步的时候，把内部的永丰机房和土城机房的写消息通过 WMB 同步给阿里云机房的 WMB，阿里云机房的 WMB 把写消息转发给阿里云机房的处理机处理，进而更新阿里云机房的缓存，整个流程可见下图。其中阿里云机房主要用于承担下行的读请求，部署的缓存也不是跟内网机房完全一致，而是只部署了最核心的服务所依赖的缓存，这样可以将大部分阿里云机房的请求都在内部消化，减少到内网数据库的穿透，从而节省跨云专线的带宽使用。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200809205043.png" style="zoom: 33%;" />
+<img src="img/20200809205043.png" style="zoom: 33%;" />
 
 
 # 十三、下一代微服务架构Service Mesh
@@ -1065,11 +1065,11 @@ WMB 消息同步组件的功能就是把一个机房的写请求发给另外一�
 
 我们首先来看一下，在传统的微服务架构下服务调用的原理。你可以看下面这张图，服务消费者这边除了自身的业务逻辑实现外，还需要集成部分服务框架的逻辑，比如服务发现、负载均衡、熔断降级、封装调用等，而服务提供者这边除了实现服务的业务逻辑外，也要集成部分服务框架的逻辑，比如线程池、限流降级、服务注册等。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200810103818.png" alt="image-20200810103818699" style="zoom:33%;" />
+<img src="img/20200810103818.png" alt="image-20200810103818699" style="zoom:33%;" />
 
 而在 Service Mesh 架构中，服务框架的功能都集中实现在 SideCar 里，并在每一个服务消费者和服务提供者的本地都部署一个 SideCar，服务消费者和服务提供者只管自己的业务实现，服务消费者向本地的 SideCar 发起请求，本地的 SideCar 根据请求的路径向注册中心查询，得到服务提供者的可用节点列表后，再根据负载均衡策略选择一个服务提供者节点，并向这个节点上的 SideCar 转发请求，服务提供者节点上的 SideCar 完成流量统计、限流等功能后，再把请求转发给本地部署的服务提供者进程，从而完成一次服务请求。整个流程你可以参考下面这张图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200810103721.png" alt="image-20200810103721360" style="zoom: 33%;" />
+<img src="img/20200810103721.png" alt="image-20200810103721360" style="zoom: 33%;" />
 ## 13.2 Service Mesh选型
 到了今天当我们再谈到 Service Mesh 时，往往第一个想到的是Istio。为什么我认为 Istio 可以称得上是 Service Mesh 的代表产品呢？在我看来主要有以下几个原因：
 

@@ -4,7 +4,7 @@
 
 此外，大数据要存入分布式文件系统（HDFS），要有序调度 MapReduce 和 Spark 作业执行，并能把执行结果写入到各个应用系统的数据库中，还需要有一个**大数据平台**整合所有这些大数据组件和企业应用系统。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200915191815.png" style="zoom:50%;" />
+<img src="img/20200915191815.png" style="zoom:50%;" />
 
 **大数据从搜索引擎到机器学习，发展思路其实是一脉相承的，就是想发现数据中的规律并为我们所用**。所以很多人把数据称作金矿，大数据应用就是从这座蕴含知识宝藏的金矿中发掘中有商业价值的真金白银出来。
 
@@ -35,7 +35,7 @@ RAID（独立磁盘冗余阵列）技术是将多块普通磁盘组成一个阵�
 - RAID 5 和 RAID 3 很相似，但是校验数据不是写入第 N 块磁盘，而是螺旋式地写入所有磁盘中。这样校验数据的修改也被平均到所有磁盘上，避免 RAID 3 频繁写坏一块磁盘的情况。
 - RAID 6 和 RAID 5 类似，但是数据只写入 N-2 块磁盘，并螺旋式地在两块磁盘中写入校验信息（使用不同算法生成）。和 RAID 5、RAID 3 相比最多允许同时坏两块硬盘。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200916180022.png" style="zoom:67%;" />
+<img src="img/20200916180022.png" style="zoom:67%;" />
 
 
 
@@ -51,7 +51,7 @@ RAID 可以看作是一种垂直伸缩，一台计算机集成更多的磁盘实
 
 和 RAID 在多个磁盘上进行文件存储及并行读写的思路一样，HDFS 是在一个大规模分布式服务器集群上，对数据分片后进行并行读写及冗余存储。因为 HDFS 可以部署在一个比较大的服务器集群上，集群中所有服务器的磁盘都可供 HDFS 使用，所以整个 HDFS 的存储空间可以达到 PB 级容量。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200917114156.png" style="zoom: 33%;" />
+<img src="img/20200917114156.png" style="zoom: 33%;" />
 
 上图是 HDFS 的架构图，从图中你可以看到 HDFS 的关键组件有两个，一个是 DataNode，一个是 NameNode。
 
@@ -79,7 +79,7 @@ NameNode 是整个 HDFS 的核心，记录着 HDFS 文件分配表信息，所�
 
 所以，NameNode 高可用容错能力非常重要。NameNode 采用主从热备的方式提供高可用服务，请看下图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200917143448.png" style="zoom:67%;" />
+<img src="img/20200917143448.png" style="zoom:67%;" />
 
 # 三、数据计算
 
@@ -103,7 +103,7 @@ NameNode 是整个 HDFS 的核心，记录着 HDFS 文件分配表信息，所�
 
 WordCount 主要解决的是文本处理中词频统计的问题，就是统计文本中每一个单词出现的次数。如果只是统计一篇文章的词频，几十 KB 到几 MB 的数据，只需要写一个程序，将数据读入内存，建一个 Hash 表记录每个词出现的次数就可以了。小数据量用单机统计词频很简单，但是如果想统计全世界互联网所有网页（数万亿计）的词频数（而这正是 Google 这样的搜索引擎的典型需求），不可能写一个程序把全世界的网页都读入内存，这时候就需要用 MapReduce 编程来解决。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200917152341.png" style="zoom: 50%;" />
+<img src="img/20200917152341.png" style="zoom: 50%;" />
 
 一个 map 函数可以针对一部分数据进行运算，这样就可以将一个大数据切分成很多块（这也正是 HDFS 所做的），MapReduce 计算框架为每个数据块分配一个 map 函数去计算，从而实现大数据的分布式计算。但是这样一个 MapReduce 程序要想在分布式环境中执行，并处理海量的大规模数据，还需要一个计算框架，能够调度执行这个 MapReduce 程序，使它在分布式的集群中并行运行，而这个计算框架也叫 MapReduce。
 
@@ -116,7 +116,7 @@ WordCount 主要解决的是文本处理中词频统计的问题，就是统计�
 - 处于不同服务器的 map 输出的 <Key, Value> ，如何把相同的 Key 聚合在一起发送给 Reduce 任务进行处理。
 那么这两个关键问题对应在 MapReduce 计算过程的哪些步骤呢？我把 MapReduce 计算过程的图又找出来，你可以看到图中标红的两处，这两个关键问题对应的就是图中的两处“MapReduce 框架处理”，具体来说，它们分别是 MapReduce 作业启动和运行，以及 MapReduce 数据合并与连接。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200917164247.png" style="zoom:50%;" />
+<img src="img/20200917164247.png" style="zoom:50%;" />
 
 
 
@@ -134,7 +134,7 @@ JobTracker 进程和 TaskTracker 进程是主从关系，主服务器通常只�
 
 讲到这里，我们对 MapReduce 的启动和运行机制有了一个直观的了解。那具体的作业启动和计算过程到底是怎样的呢？我根据上面所讲的绘制成一张图，你可以从图中一步一步来看，感受一下整个流程。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200917171810.png" style="zoom:50%;" />
+<img src="img/20200917171810.png" style="zoom:50%;" />
 
 上图的主要流程是：
 1. 应用进程 JobClient 将用户作业 JAR 包存储在 HDFS 中，将来这些 JAR 包会分发给 Hadoop 集群中的服务器执行 MapReduce 计算。
@@ -153,7 +153,7 @@ JobTracker 进程和 TaskTracker 进程是主从关系，主服务器通常只�
 
 在 map 输出与 reduce 输入之间，MapReduce 计算框架处理数据合并与连接操作，这个操作有个专门的词汇叫**shuffle**。那到底什么是 shuffle？shuffle 的具体过程又是怎样的呢？请看下图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200917173832.png" style="zoom:50%;" />
+<img src="img/20200917173832.png" style="zoom:50%;" />
 
 每个 Map 任务的计算结果都会写入到本地文件系统，等 Map 任务快要计算完成的时候，MapReduce 计算框架会启动 shuffle 过程，在 Map 任务进程调用一个 Partitioner 接口，对 Map 产生的每个 <Key, Value> 进行 Reduce 分区选择，然后通过 HTTP 通信发送给对应的 Reduce 进程。这样不管 Map 位于哪个服务器节点，相同的 Key 一定会被发送给相同的 Reduce 进程。Reduce 任务进程对收到的 <Key, Value> 进行排序和合并，相同的 Key 放在一起，组成一个 <Key, Value 集合 > 传递给 Reduce 执行。
 

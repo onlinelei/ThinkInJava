@@ -35,7 +35,7 @@ Docker 能帮助解决服务运行环境可迁移问题的关键，就在于 Doc
 - Web 容器层。这一层定义了业务代码运行的容器的配置，比如 Tomcat 容器的 JVM 参数。
 - 业务代码层。这一层定义了实际的业务代码的版本，比如是 V4 业务还是 blossom 业务。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200808183125.png" style="zoom:67%;" />
+<img src="img/20200808183125.png" style="zoom:67%;" />
 
 这样的话，每一层的镜像都是在上一层镜像的基础上添加新的内容组成的，以微博 V4 镜像为例，V4 业务的 Dockerfile 文件内容如下：
 

@@ -2,7 +2,7 @@
 
 下面我给出的是 MySQL 的基本架构示意图，从中你可以清楚地看到 SQL 语句在 MySQL 的各个功能模块中的执行过程。大体来说，MySQL 可以分为 Server 层和存储引擎层两部分。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200810145855.png" style="zoom: 25%;" />
+<img src="img/20200810145855.png" alt="20200617145017" style="zoom: 25%;" />
 
 - Server 层包括连接器、查询缓存、分析器、优化器、执行器等，涵盖 MySQL 的大多数核心服务功能，以及所有的内置函数（如日期、时间、数学和加密函数等），所有跨存储引擎的功能都在这一层实现，比如存储过程、触发器、视图等。
 
@@ -27,7 +27,7 @@ mysql -h$ip -P$port -u$user -p
 
 连接完成后，如果你没有后续的动作，这个连接就处于空闲状态，你可以在 show processlist 命令中看到它。文本中这个图是 show processlist 的结果，其中的 Command 列显示为“Sleep”的这一行，就表示现在系统里面有一个空闲连接。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200810150409.png" style="zoom:67%;" />
+<img src="img/20200810150409.png" style="zoom:67%;" />
 
 客户端如果太长时间没动静，连接器就会自动将它断开。这个时间是由参数 wait_timeout 控制的，默认值是 8 小时。
 
@@ -163,7 +163,7 @@ mysql> update T set c=c+1 where ID=2;
 
 与此类似，InnoDB 的 redo log 是固定大小的，比如可以配置为一组 4 个文件，每个文件的大小是 1GB，那么这块“粉板”总共就可以记录 4GB 的操作。从头开始写，写到末尾就又回到开头循环写，如下面这个图所示。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200810163342.png" style="zoom:33%;" />
+<img src="img/20200810163342.png" style="zoom:33%;" />
 
 write pos 是当前记录的位置，一边写一边后移，写到第 3 号文件末尾后就回到 0 号文件开头。checkpoint 是当前要擦除的位置，也是往后推移并且循环的，擦除记录前要把记录更新到数据文件。
 
@@ -234,7 +234,7 @@ InnoDB有一个有趣的策略，一旦一个查询请求需要在执行过程�
 
 ### 1.5.3 redo log 的写入机制
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200828183321.png" style="zoom:33%;" />
+<img src="img/20200828183321.png" style="zoom:33%;" />
 
 这三种状态分别是：
 
@@ -281,7 +281,7 @@ InnoDB 有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的�
 
 这里我给出这个 update 语句的执行流程图，图中浅色框表示是在 InnoDB 内部执行的，深色框表示是在执行器中执行的。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200810170242.png" style="zoom:33%;" />
+<img src="img/20200810170242.png" style="zoom:33%;" />
 
 从图上可以发现将 redo log 的写入拆成了两个步骤：prepare 和 commit，这就是"两阶段提交"。
 
@@ -291,7 +291,7 @@ InnoDB 有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的�
 
 当需要恢复到指定的某一秒时，比如某天下午两点发现中午十二点有一次误删表，需要找回数据，那你可以这么做：
 
-- 首先，找到最近的一次全量备份，如果你运气好，可能就是昨天晚上的一个备份，从这个备份恢复到临时库；
+- 首先，找到最近的一次全量备份，x如果你运气好，可能就是昨天晚上的一个备份，从这个备份恢复到临时库；
 - 然后，从备份的时间点开始，将备份的 binlog 依次取出来，重放到中午误删表之前的那个时刻。
 
 这样你的临时库就跟误删之前的线上库一样了，然后你可以把表数据从临时库取出来，按需要恢复到线上库去。
@@ -319,7 +319,7 @@ InnoDB 有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的�
 
 binlog 的写入逻辑比较简单：事务执行过程中，先把日志写到 binlog cache，事务提交的时候，再把 binlog cache 写到 binlog 文件中。一个事务的 binlog 是不能被拆开的，因此不论这个事务多大，也要确保一次性写入。这就涉及到了 binlog cache 的保存问题。系统给 binlog cache 分配了一片内存，每个线程一个，参数 binlog_cache_size 用于控制单个线程内 binlog cache 所占内存的大小。如果超过了这个参数规定的大小，就要暂存到磁盘。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200824192105.png" style="zoom:33%;" />
+<img src="img/20200824192105.png" style="zoom:33%;" />
 
 可以看到，每个线程有自己 binlog cache，但是共用同一份 binlog 文件。
 
@@ -479,7 +479,7 @@ select * from T where k between 3 and 5，需要执行几次树的搜索操作�
 
 这里，我先和你说结论吧。**B+ 树这种索引结构，可以利用索引的“最左前缀”，来定位记录。**为了直观地说明这个概念，我们用（name，age）这个联合索引来分析。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811150745.png" style="zoom:33%;" />
+<img src="img/20200811150745.png" style="zoom:33%;" />
 
 
 
@@ -511,7 +511,7 @@ mysql> select * from tuser where name like '张 %' and age=10 and ismale=1;
 
 图 3 和图 4，是这两个过程的执行流程图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811151947.png" style="zoom:50%;" />
+<img src="img/20200811151947.png" style="zoom:50%;" />
 
 ## 3.9 前缀索引
 现在，几乎所有的系统都支持邮箱登录，如何在邮箱这样的字段上建立合理的索引，那我们最合适的就是使用前缀索引，前缀索引也就是说，你可以定义字符串的一部分作为索引。默认地，如果你创建索引的语句不指定前缀长度，那么索引就会包含整个字符串。
@@ -676,7 +676,7 @@ MySQL 里面表级别的锁有两种：一种是表锁，一种是元数据锁�
 
 你肯定知道，给一个表加字段，或者修改字段，或者加索引，需要扫描全表的数据。在对大表操作的时候，你肯定会特别小心，以免对线上服务造成影响。而实际上，即使是小表，操作不慎也会出问题。我们来看一下下面的操作序列，假设表 t 是一个小表。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811164540.png" style="zoom:33%;" />
+<img src="img/20200811164540.png" style="zoom:33%;" />
 
 我们可以看到 session A 先启动，这时候会对表 t 加一个 MDL 读锁。由于 session B 需要的也是 MDL 读锁，因此可以正常执行。之后 session C 会被 blocked，是因为 session A 的 MDL 读锁还没有释放，而 session C 需要 MDL 写锁，因此只能被阻塞。如果只有 session C 自己被阻塞还没什么关系，但是之后所有要在表 t 上新申请 MDL 读锁的请求也会被 session C 阻塞。前面我们说了，所有对表的增删改查操作都需要先申请 MDL 读锁，就都被锁住，等于这个表现在完全不可读写了。
 
@@ -759,7 +759,7 @@ mysql> CREATE TABLE `t` (
 insert into t(id, k) values(1,1),(2,2);
 ```
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811183744.png" style="zoom:50%;" />
+<img src="img/20200811183744.png" style="zoom:50%;" />
 
 这里，我们需要注意的是事务的启动时机，begin/start transaction 命令并不是一个事务的起点，在执行到它们之后的第一个操作 InnoDB 表的语句，事务才真正启动。如果你想要马上启动一个事务，可以使用 start transaction with consistent snapshot 这个命令。
 > 第一种启动方式，一致性视图是在第执行第一个快照读语句时创建的；
@@ -784,7 +784,7 @@ InnoDB 里面每个事务有一个唯一的事务 ID，叫作 transaction id。�
 
 如下图所示，就是一个记录被多个事务连续更新后的状态。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811185455.png" style="zoom:33%;" />
+<img src="img/20200811185455.png" style="zoom:33%;" />
 
 图中虚线框里是同一行数据的 4 个版本，当前最新版本是 V4，k 的值是 22，它是被 transaction id 为 25 的事务更新的，因此它的 row trx_id 也是 25。你可能会问，前面的文章不是说，语句更新会生成 undo log（回滚日志）吗？那么，**undo log 在哪呢？**实际上，图 2 中的三个虚线箭头，就是 undo log；而 V1、V2、V3 并不是物理上真实存在的，而是每次需要的时候根据当前版本和 undo log 计算出来的。比如，需要 V2 的时候，就是通过 V4 依次执行 U3、U2 算出来。
 
@@ -796,7 +796,7 @@ InnoDB 里面每个事务有一个唯一的事务 ID，叫作 transaction id。�
 
 而数据版本的可见性规则，就是基于数据的 row trx_id 和这个一致性视图的对比结果得到的。这个视图数组把所有的 row trx_id 分成了几种不同的情况。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811190852.png" style="zoom: 33%;" />
+<img src="img/20200811190852.png" style="zoom: 33%;" />
 
 这样，对于当前事务的启动瞬间来说，一个数据版本的 row trx_id，有以下几种可能：
 
@@ -824,7 +824,7 @@ InnoDB 里面每个事务有一个唯一的事务 ID，叫作 transaction id。�
 
 为了简化分析，我先把其他干扰语句去掉，只画出跟事务 A 查询逻辑有关的操作：
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200811192610.png" style="zoom: 33%;" />
+<img src="img/20200811192610.png" style="zoom: 33%;" />
 
 从图中可以看到，第一个有效更新是事务 C，把数据从 (1,1) 改成了 (1,2)。这时候，这个数据的最新版本的 row trx_id 是 102，而 90 这个版本已经成为了历史版本。
 
@@ -862,7 +862,7 @@ InnoDB 里面每个事务有一个唯一的事务 ID，叫作 transaction id。�
 
 你看图 5 中，事务 B 的视图数组是先生成的，之后事务 C 才提交，不是应该看不见 (1,2) 吗，怎么能算出 (1,3) 来？
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200812151231.png" style="zoom:33%;" />
+<img src="img/20200812151231.png" style="zoom:33%;" />
 
 是的，如果事务 B 在更新之前查询一次数据，这个查询返回的 k 的值确实是 1。
 
@@ -885,13 +885,13 @@ mysql> select k from t where id=1 for update;
 
 再往前一步，假设事务 C 不是马上提交的，而是变成了下面的事务 C’，会怎么样呢？
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200812151312.png" style="zoom:33%;" />
+<img src="img/20200812151312.png" style="zoom:33%;" />
 
 事务 C’ 的不同是，更新后并没有马上提交，在它提交前，事务 B 的更新语句先发起了。前面说过了，虽然事务 C’ 还没提交，但是 (1,2) 这个版本也已经生成了，并且是当前的最新版本。那么，事务 B 的更新语句会怎么处理呢？
 
 这时候，我们在上一篇文章中提到的“两阶段锁协议”就要上场了。事务 C’ 没提交，也就是说 (1,2) 这个版本上的写锁还没释放。而事务 B 是当前读，必须要读最新版本，而且必须加锁，因此就被锁住了，必须等到事务 C’ 释放这个锁，才能继续它的当前读。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200812151341.png" style="zoom:33%;" />
+<img src="img/20200812151341.png" style="zoom:33%;" />
 
 到这里，我们把一致性读、当前读和行锁就串起来了。
 
@@ -910,7 +910,7 @@ mysql> select k from t where id=1 for update;
 
 下面是读提交时的状态图，可以看到这两个查询语句的创建视图数组的时机发生了变化，就是图中的 read view 框。（注意：这里，我们用的还是事务 C 的逻辑直接提交，而不是事务 C’）
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200812151417.png" style="zoom:33%;" />
+<img src="img/20200812151417.png" style="zoom:33%;" />
 
 这时，事务 A 的查询语句的视图数组是在执行这个语句的时候创建的，时序上 (1,2)、(1,3) 的生成时间都在创建这个视图数组的时刻之前。但是，在这个时刻：
 
@@ -956,7 +956,7 @@ mysql> select k from t where id=1 for update;
 4. 临时文件生成后，将日志文件中的操作应用到临时文件，得到一个逻辑数据上与表 A 相同的数据文件，对应的就是图中 state3 的状态；
 5. 用临时文件替换表 A 的数据文件。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200814195210.png" style="zoom:33%;" />
+<img src="img/20200814195210.png" style="zoom:33%;" />
 
 可以看到，与图 3 过程的不同之处在于，由于日志文件记录和重放操作这个功能的存在，这个方案在重建表的过程中，允许对表 A 做增删改操作。这也就是 Online DDL 名字的来源。
 
@@ -1049,7 +1049,7 @@ select city,name,age from t where city='杭州' order by name limit 1000  ;
 6. 对 sort_buffer 中的数据按照字段 name 做快速排序；
 7. 按照排序结果取前 1000 行返回给客户端。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815112936.png" style="zoom:33%;" />
+<img src="img/20200815112936.png" style="zoom:33%;" />
 
 图中“按 name 排序”这个动作，可能在内存中完成，也可能需要使用外部排序，这取决于排序所需的内存和参数 sort_buffer_size。sort_buffer_size，就是 MySQL 为排序开辟的内存（sort_buffer）的大小。如果要排序的数据量小于 sort_buffer_size，排序就在内存中完成。但如果排序数据量太大，内存放不下，则不得不利用磁盘临时文件辅助排序。
 
@@ -1075,7 +1075,7 @@ select VARIABLE_VALUE into @b from performance_schema.session_status where varia
 select @b-@a;
 ```
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815113929.png" style="zoom: 67%;" />
+<img src="img/20200815113929.png" style="zoom: 67%;" />
 
 这个方法是通过查看 OPTIMIZER_TRACE 的结果来确认的，你可以从 number_of_tmp_files 中看到是否使用了临时文件。number_of_tmp_files 表示的是，排序过程中使用的临时文件数。你一定奇怪，为什么需要 12 个文件？内存放不下时，就需要使用外部排序，外部排序一般使用归并排序算法。可以这么简单理解，**MySQL 将需要排序的数据分成 12 份，每一份单独排序后存在这些临时文件中。然后把这 12 个有序文件再合并成一个有序的大文件。**
 
@@ -1103,13 +1103,13 @@ SET max_length_for_sort_data = 16;
 6. 对 sort_buffer 中的数据按照字段 name 进行排序；
 7. 遍历排序结果，取前 1000 行，并按照 id 的值回到原表中取出 city、name 和 age 三个字段返回给客户端。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815115353.png" style="zoom:50%;" />
+<img src="img/20200815115353.png" style="zoom:50%;" />
 
 需要说明的是，最后的“结果集”是一个逻辑概念，实际上 MySQL 服务端从排序后的 sort_buffer 中依次取出 id，然后到原表查到 city、name 和 age 这三个字段的结果，不需要在服务端再耗费内存存储结果，是直接返回给客户端的。
 
 根据这个说明过程和图示，你可以想一下，这个时候执行 select @b-@a 首先，图中的 examined_rows 的值还是 4000，表示用于排序的数据是 4000 行。但是 select @b-@a 这个语句的值变成 5000 了。因为这时候除了排序过程外，在排序完成后，还要根据 id 去原表取值。由于语句是 limit 1000，因此会多读 1000 行。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815120856.png" style="zoom:67%;" />
+<img src="img/20200815120856.png" style="zoom:67%;" />
 
 - sort_mode 变成了 <sort_key, rowid>，表示参与排序的只有 name 和 id 这两个字段。
 - number_of_tmp_files 变成 10 了，是因为这时候参与排序的行数虽然仍然是 4000 行，但是每一行都变小了，因此需要排序的总数据量就变小了，需要的临时文件也相应地变少了。
@@ -1130,7 +1130,7 @@ mysql> select word from words order by rand() limit 3;
 
 这个语句的意思很直白，随机排序取前 3 个。虽然这个 SQL 语句写法很简单，但执行流程却有点复杂的，我们先用 explain 命令来看看这个语句的执行情况：
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200815155025.png" style="zoom:67%;" />
+<img src="img/20200815155025.png" style="zoom:67%;" />
 
 Extra 字段显示 Using temporary，表示的是需要使用临时表；Using filesort，表示的是需要执行排序操作。
 
@@ -1208,7 +1208,7 @@ mysql> select * from tradelog where tradeid=110717;
 1. 如果规则是“将字符串转成数字”，那么就是做数字比较，结果应该是 1；
 2. 如果规则是“将数字转成字符串”，那么就是做字符串比较，结果应该是 0。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200819144319.png" style="zoom:50%;" />
+<img src="img/20200819144319.png" style="zoom:50%;" />
 
 从图中可知，select “10” > 9 返回的是 1，所以你就能确认 MySQL 里的转换规则了：在 MySQL 中，字符串和数字做比较的话，是将字符串转换成数字。也就是说，这条语句触发了我们上面说到的规则：对索引字段做函数操作，优化器会放弃走树搜索功能。
 
@@ -1256,7 +1256,7 @@ alter table trade_detail modify tradeid varchar(32) CHARACTER SET utf8mb4 defaul
 mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tradeid USING utf8) and l.id=2; 
 ```
 ## 6.5 MySQL主备
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831192342.png" style="zoom:33%;" />
+<img src="img/20200831192342.png" style="zoom:33%;" />
 
 在状态 1 中，客户端的读写都直接访问节点 A，而节点 B 是 A 的备库，只是将 A 的更新都同步过来，到本地执行。这样可以保持节点 B 和 A 的数据是相同的。当需要切换的时候，就切成状态 2。这时候客户端读写访问的都是节点 B，而节点 A 是 B 的备库。在状态 1 中，虽然节点 B 没有被直接访问，但是我依然建议你把节点 B（也就是备库）设置成只读（readonly）模式。这样做，有以下几个考虑：
 
@@ -1266,7 +1266,7 @@ mysql> select d.* from tradelog l , trade_detail d where d.tradeid=CONVERT(l.tra
 
 接下来，我们再看看**节点 A 到 B 这条线的内部流程是什么样的**。图 2 中画出的就是一个 update 语句在节点 A 执行，然后同步到节点 B 的完整流程图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831192605.png" style="zoom:33%;" />
+<img src="img/20200831192605.png" style="zoom:33%;" />
 
 备库 B 跟主库 A 之间维持了一个长连接。主库 A 内部有一个线程，专门用于服务备库 B 的这个长连接。一个事务日志同步的完整过程是这样的：
 
@@ -1286,7 +1286,7 @@ binlog 有三种格式，一种是 statement，一种是 row，第三种格式�
 
 ### 6.5.2 循环复制问题
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831195913.png" style="zoom:33%;" />
+<img src="img/20200831195913.png" style="zoom:33%;" />
 
 上图为互为主备的架构，也叫双M架构，是实际中使用比较多的结构，双 M 结构和 M-S 结构，其实区别只是多了一条线，即：节点 A 和 B 之间总是互为主备关系。这样在切换的时候就不用再修改主备关系。
 
@@ -1313,13 +1313,13 @@ binlog 有三种格式，一种是 statement，一种是 row，第三种格式�
 4. 把备库 B 改成可读写状态，也就是把 readonly 设置为 false；
 5. 把业务请求切到备库 B。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831202146.png" style="zoom:33%;" />
+<img src="img/20200831202146.png" style="zoom:33%;" />
 
 图中的 SBM，是 seconds_behind_master 参数的简写。可以看到，这个切换流程中是有不可用时间的。因为在步骤 2 之后，主库 A 和备库 B 都处于 readonly 状态，也就是说这时系统处于不可写状态，直到步骤 5 完成后才能恢复。试想如果一开始主备延迟就长达 30 分钟，而不先做判断直接切换的话，系统的不可用时间就会长达 30 分钟，这种情况一般业务都是不可接受的。当然，系统的不可用时间，是由这个数据可靠性优先的策略决定的。你也可以选择可用性优先的策略，来把这个不可用时间几乎降为 0。
 
 下图是**可用性优先策略，且 binlog_format=mixed**时的切换流程和数据结果。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831202358.png" style="zoom:33%;" />
+<img src="img/20200831202358.png" style="zoom:33%;" />
 
 1. 步骤 2 中，主库 A 执行完 insert 语句，插入了一行数据（4,4），之后开始进行主备切换。
 2. 步骤 3 中，由于主备之间有 5 秒的延迟，所以备库 B 还没来得及应用“插入 c=4”这个中转日志，就开始接收客户端“插入 c=5”的命令。
@@ -1330,7 +1330,7 @@ binlog 有三种格式，一种是 statement，一种是 row，第三种格式�
 
 那么，如果我还是用**可用性优先策略，但设置 binlog_format=row**，情况又会怎样呢？
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200831202549.png" style="zoom:33%;" />
+<img src="img/20200831202549.png" style="zoom:33%;" />
 
 1. 使用 row 格式的 binlog 时，数据不一致的问题更容易被发现。而使用 mixed 或者 statement 格式的 binlog 时，数据很可能悄悄地就不一致了。如果你过了很久才发现数据不一致的问题，很可能这时的数据不一致已经不可查，或者连带造成了更多的数据逻辑不一致。
 2. 主备切换的可用性优先策略会导致数据不一致。因此，大多数情况下，我都建议你使用可靠性优先策略。毕竟对数据服务来说的话，数据的可靠性一般还是要优于可用性的。
@@ -1344,7 +1344,7 @@ binlog 有三种格式，一种是 statement，一种是 row，第三种格式�
 
 在官方的 5.6 版本之前，MySQL 只支持单线程复制，由此在主库并发高、TPS 高时就会出现严重的主备延迟问题。从单线程复制到最新版本的多线程复制，中间的演化经历了好几个版本。接下来，我就跟你说说 MySQL 多线程复制的演进过程。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200901103743.png" style="zoom:33%;" />
+<img src="img/20200901103743.png" style="zoom:33%;" />
 
 图中的 coordinator 负责读取中转日志和分发事务。真正更新日志的，是 worker 线程。而 work 线程的个数，就是由参数 slave_parallel_workers 决定的。根据我的经验，把这个值设置为 8~16 之间最好（32 核物理机的情况），毕竟备库还有可能要提供读查询，不能把 CPU 都吃光了。
 
@@ -1355,7 +1355,7 @@ binlog 有三种格式，一种是 statement，一种是 row，第三种格式�
 
 MySQL 5.5 版本加入了按表分发策略，如果两个事务更新不同的表，它们就可以并行。因为数据是存储在表里的，所以按表分发，可以保证两个 worker 不会更新同一行。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200902174119.png" style="zoom:33%;" />
+<img src="img/20200902174119.png" style="zoom:33%;" />
 
 可以看到，每个 worker 线程对应一个 hash 表，用于保存当前正在这个 worker 的“执行队列”里的事务所涉及的表。hash 表的 key 是“库名. 表名”，value 是一个数字，表示队列中有多少个事务修改这个表。在有事务分配给 worker 时，事务里面涉及的表会被加到对应的 hash 表中。worker 执行完成后，这个表会被从 hash 表中去掉。
 
@@ -1380,7 +1380,7 @@ MySQL 5.5 版本加入了按表分发策略，如果两个事务更新不同的�
 
 但是，这个“唯一键”只有主键 id 还是不够的，我们还需要考虑下面这种场景，表 t1 中除了主键，还有唯一索引，防止多个 work 线程造成数据触发唯一索引错误
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200902180034.png" style="zoom: 50%;" />
+<img src="img/20200902180034.png" style="zoom: 50%;" />
 
 基于行的策略，事务 hash 表中还需要考虑唯一键，即 key 应该是“库名 + 表名 + 索引 a 的名字 +a 的值”。因此，coordinator 在解析这个语句的 binlog 的时候，这个事务的 hash 表就有三个项:
 
@@ -1423,7 +1423,7 @@ MariaDB 的并行复制策略利用了组提交 (group commit) ，的特性：
 
 ## 6.6 Mysql 主从
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200902202505.png" style="zoom: 33%;" />
+<img src="img/20200902202505.png" style="zoom: 33%;" />
 
 如图所示， A 和 A’ 互为主备，从库 B、C、D 指向的是主库 A。一主多从的设置，一般用于读写分离，主库负责所有的写入和一部分读，其他的读请求则由从库分担。此时如果主库 A 出现问题，A’ 会成为新的主库，从库 B、C、D 也要改接到 A’。正是由于多了从库 B、C、D 重新指向的这个过程，所以主备切换的复杂性也相应增加了。
 
@@ -1454,7 +1454,7 @@ MASTER_LOG_POS=$master_log_pos
 mysqlbinlog File --stop-datetime=T --start-datetime=T
 ```
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200902203405.png" style="zoom:50%;" />
+<img src="img/20200902203405.png" style="zoom:50%;" />
 
 图中，end_log_pos 后面的值“123”，表示的就是 A’这个实例，在 T 时刻写入新的 binlog 的位置。然后，我们就可以把 123 这个值作为 $master_log_pos ，用在节点 B 的 change master 命令里。当然这个值并不精确。你可以设想有这么一种情况，假设在 T 这个时刻，主库 A 已经执行完成了一个 insert 语句插入了一行数据 R，并且已经将 binlog 传给了 A’和 B，然后在传完的瞬间主库 A 的主机就掉电了。
 
@@ -1594,7 +1594,6 @@ MySQL 客户端发送请求后，接收服务端返回结果的方式有两种�
 **第一种方法：先处理掉那些占着连接但是不工作的线程。**max_connections 的计算，不是看谁在 running，是只要连着就占用一个计数位置。对于那些不需要保持的连接，我们可以通过 kill connection 主动踢掉。这个行为跟事先设置 wait_timeout 的效果是一样的。设置 wait_timeout 参数表示的是，一个线程空闲 wait_timeout 这么多秒之后，就会被 MySQL 直接断开连接。使用 show processlist 的结果里，踢掉显示为 sleep 的线程，但是这种操作是有损的。
 
 **第二种方法：减少连接过程的消耗。**有的业务代码会在短时间内先大量申请数据库连接做备用，如果现在数据库确认是被连接行为打挂了，那么一种可能的做法，是让数据库跳过权限验证阶段。跳过权限验证的方法是：重启数据库，并使用–skip-grant-tables 参数启动。这样，整个 MySQL 会跳过所有的权限验证阶段，包括连接过程和语句执行过程在内。但是，这种方法特别符合我们标题里说的“饮鸩止渴”，风险极高。
-
 
 
 

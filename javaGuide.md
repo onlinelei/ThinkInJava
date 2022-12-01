@@ -125,7 +125,7 @@ java --patch-module java.base=your_patch yourApp
 * 扩展类加载器（Extension or Ext Class-Loader），负责加载我们放到 jre/lib/ext/ 目录下面的 jar 包，这就是所谓的 extension 机制。该目录也可以通过设置 “java.ext.dirs”来覆盖。`java -Djava.ext.dirs=your_ext_dir HelloWorld`
 * 应用类加载器（Application or App Class-Loader），就是加载我们最熟悉的 classpath 的内容。这里有一个容易混淆的概念，系统（System）类加载器，通常来说，其默认就是 JDK 内建的应用类加载器，但是它同样是可能修改的，比如：`java -Djava.system.class.loader=com.yourcorp.YourClassLoader HelloWorld`如果我们指定了这个参数，JDK 内建的应用类加载器就会成为定制加载器的父亲，这种方式通常用在类似需要改变双亲委派模式的场景。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200708153319.png" style="zoom:50%;" />
+<img src="img/20200708153319.png" style="zoom:50%;" />
 
 如果不同类加载器都自己加载需要的某个类型，那么就会出现多次重复加载，完全是种浪费，所以便有了双亲委派模型。但不是所有类加载都遵守这个模型，有的时候，启动类加载器所加载的类型，是可能要加载用户代码的，比如 JDK 内部的 ServiceProvider/ServiceLoader机制，用户可以在标准 API 框架上，提供自己的实现，JDK 也需要提供些默认的参考实现。 例如，Java 中 JNDI、JDBC、文件系统、Cipher 等很多方面，都是利用的这种机制，这种情况就不会用双亲委派模型去加载，而是利用所谓的上下文加载器。
 子类加载器可以访问父加载器加载的类型，但是反过来是不允许的，不然，因为缺少必要的隔离，我们就没有办法利用类加载器去实现容器的逻辑。由于父加载器的类型对于子加载器是可见的，所以父加载器中加载过的类型，就不会在子加载器中重复加载。但是注意，类加载器“邻居”间，同一类型仍然可以被加载多次，因为互相并不可见。
@@ -135,7 +135,7 @@ JDK 9 中 Jigsaw 项目引入了 Java 平台模块化系统（JPMS）扩展类�
 增加了 Layer 的抽象， JVM 启动默认创建 BootLayer，开发者也可以自己去定义和实例化 Layer，可以更加方便的实现类似容器一般的逻辑抽象。
 结合了 Layer，目前的 JVM 内部结构就变成了下面的层次，内建类加载器都在 BootLayer 中，其他 Layer 内部有自定义的类加载器，不同版本模块可以同时工作在不同的 Layer。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200708155520.png" style="zoom: 50%;" />
+<img src="img/20200708155520.png" style="zoom: 50%;" />
 
 自定义类加载器，常见的场景有：
 * 实现类似进程内隔离，用不同的命名空间加载某个类库的不同版本，
@@ -167,21 +167,21 @@ public native Class<?> defineAnonymousClass(Class<?> var1, byte[] var2, Object[]
 
 * 本地方法栈（Native Method Stack）。它和 Java 虚拟机栈是非常相似的，支持对本地方法的调用，也是每个线程都会创建一个。在 Oracle Hotspot JVM 中，本地方法栈和 Java 虚拟机栈是在同一块儿区域，这完全取决于技术实现的决定，并未在规范中强制。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200708172636.png" style="zoom:50%;" />
+<img src="img/20200708172636.png" style="zoom:50%;" />
 
 - 直接内存（Direct Memory 内核空间）区域，在 JVM 工程师的眼中，并不认为它是 JVM 内部内存的一部分，也并未体现 JVM 内存模型中。
 - JVM 本身是个本地程序，还需要其他的内存去完成各种基本任务，比如，JIT Compiler 在运行时对热点方法进行编译，就会将编译后的方法储存在 Code Cache 里面；GC 等功能需要运行在本地线程之中，类似部分都需要占用内存空间。这些是实现 JVM JIT 等功能的需要，但规范中并不涉及。
 
 对于堆内存，我在上一讲介绍了最常见的新生代和老年代的划分，其内部结构随着 JVM 的发展和新 GC 方式的引入，可以有不同角度的理解，下图就是年代视角的堆结构示意图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200709145204.png" style="zoom:50%;" />
+<img src="img/20200709145204.png" style="zoom:50%;" />
 
 新生代：新生代是大部分对象创建和销毁的区域，在通常的 Java 应用中，绝大部分对象生命周期都是很短暂的。其内部又分为 Eden 区域，作为对象初始分配的区域；两个 Survivor，有时候也叫 from、to 区域，被用来放置从 Minor GC 中保留下来的对象。
 
 JVM 会随意选取一个 Survivor 区域作为“to”，然后会在 GC 过程中进行区域间拷贝，也就是将 Eden 中存活下来的对象和 from 区域的对象，拷贝到这个“to”区域。这种设计主要是为了防止内存的碎片化，并进一步清理无用对象。
 从内存模型而不是垃圾收集的角度，对 Eden 区域继续进行划分，Hotspot JVM 还有一个概念叫做 Thread Local Allocation Buffer（TLAB），据我所知所有 OpenJDK 衍生出来的 JVM 都提供了 TLAB 的设计。这是 JVM 为每个线程分配的一个私有缓存区域，否则，多线程同时分配内存时，为避免操作同一地址，可能需要使用加锁等机制，进而影响分配速度，你可以参考下面的示意图。从图中可以看出，TLAB 仍然在堆上，它是分配在 Eden 区域内的。其内部结构比较直观易懂，start、end 就是起始地址，top（指针）则表示已经分配到哪里了。所以我们分配新对象，JVM 就会移动 top，当 top 和 end 相遇时，即表示该缓存已满，JVM 会试图再从 Eden 里分配一块儿。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200709150214.png" style="zoom:50%;" />
+<img src="img/20200709150214.png" style="zoom:50%;" />
 
 老年代：放置长生命周期的对象，通常都是从 Survivor 区域拷贝过来的对象。当然，也有特殊情况，我们知道普通的对象会被分配在 TLAB 上；如果对象较大，JVM 会试图直接分配在 Eden 其他位置上；如果对象太大，完全无法在新生代找到足够长的连续空闲空间，JVM 就会直接分配到老年代。
 
@@ -208,12 +208,12 @@ Virtual：我在年代视角的堆结构示意图也就是第一张图中，还�
 
 * Serial GC，它是最古老的垃圾收集器，“Serial”体现在其收集工作是单线程的，并且在进行垃圾收集过程中，会进入臭名昭著的“Stop-The-World”状态。当然，其单线程设计也意味着精简的 GC 实现，无需维护复杂的数据结构，初始化也简单，所以一直是 Client 模式下 JVM 的默认选项。从年代的角度，通常将其老年代实现单独称作 Serial Old，它采用了标记 - 整理（Mark-Compact）算法，区别于新生代的复制算法。
 Serial GC 的对应 JVM 参数是：`-XX:+UseSerialGC`
-
 * ParNew GC，很明显是个新生代 GC 实现，它实际是 Serial GC 的多线程版本，最常见的应用场景是配合老年代的 CMS GC 工作，下面是对应参数`-XX:+UseConcMarkSweepGC -XX:+UseParNewGC`
-
 * CMS（Concurrent Mark Sweep） GC，基于标记 - 清除（Mark-Sweep）算法，设计目标是尽量减少停顿时间，这一点对于 Web 等反应时间敏感的应用非常重要，一直到今天，仍然有很多系统使用 CMS GC。但是，CMS 采用的标记 - 清除算法，存在着内存碎片化问题，所以难以避免在长时间运行等情况下发生 full GC，导致恶劣的停顿。另外，既然强调了并发（Concurrent），CMS 会占用更多 CPU 资源，并和用户线程争抢。
 * Parrallel GC，在早期 JDK 8 等版本中，它是 server 模式 JVM 的默认 GC 选择，也被称作是吞吐量优先的 GC。它的算法和 Serial GC 比较相似，尽管实现要复杂的多，其特点是新生代和老年代 GC 都是并行进行的，在常见的服务器环境中更加高效。开启选项是：`-XX:+UseParallelGC`
 * G1 GC 这是一种兼顾吞吐量和停顿时间的 GC 实现，是 Oracle JDK 9 以后的默认 GC 选项。G1 可以直观的设定停顿时间的目标，相比于 CMS GC，G1 未必能做到 CMS 在最好情况下的延时停顿，但是最差情况要好很多。G1 GC 仍然存在着年代的概念，但是其内存结构并不是简单的条带式划分，而是类似棋盘的一个个 region。Region 之间是复制算法，但整体上实际可看作是标记 - 整理（Mark-Compact）算法，可以有效地避免内存碎片，尤其是当 Java 堆非常大的时候，G1 的优势更加明显。G1 吞吐量和停顿表现都非常不错，并且仍然在不断地完善，与此同时 CMS 已经在 JDK 9 中被标记为废弃（deprecated），所以 G1 GC 值得你深入掌握。
+
+![image-20220718202417294](img/image-20220718202417294.png)
 
 **如何确定回收对象**
 
@@ -232,19 +232,19 @@ Serial GC 的对应 JVM 参数是：`-XX:+UseSerialGC`
 
 第一，Java 应用不断创建对象，通常都是分配在 Eden 区域，当其空间占用达到一定阈值时，触发 minor GC。仍然被引用的对象（绿色方块）存活下来，被复制到 JVM 选择的 Survivor 区域，而没有被引用的对象（黄色方块）则被回收。注意，我给存活对象标记了“数字 1”，这是为了表明对象的存活时间。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200710174724.png" style="zoom:50%;" />
+<img src="img/20200710174724.png" style="zoom:50%;" />
 
 第二， 经过一次 Minor GC，Eden 就会空闲下来，直到再次达到 Minor GC 触发条件，这时候，另外一个 Survivor 区域则会成为 to 区域，Eden 区域的存活对象和 From 区域对象，都会被复制到 to 区域，并且存活的年龄计数会被加 1。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200710174848.png" style="zoom:50%;" />
+<img src="img/20200710174848.png" style="zoom:50%;" />
 
 第三， 类似第二步的过程会发生很多次，直到有对象年龄计数达到阈值，这时候就会发生所谓的晋升（Promotion）过程，如下图所示，超过阈值的对象会被晋升到老年代。这个阈值是可以通过参数指定：`-XX:MaxTenuringThreshold=<N>`
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200710174921.png" style="zoom:50%;" />
+<img src="img/20200710174921.png" style="zoom:50%;" />
 
 后面就是老年代 GC，具体取决于选择的 GC 选项，对应不同的算法。下面是一个简单标记 - 整理算法过程示意图，老年代中的无用对象被清除后， GC 会将对象进行整理，以防止内存碎片化。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200710175024.png" style="zoom:50%;" />
+<img src="img/20200710175024.png" style="zoom:50%;" />
 
 通常我们把老年代 GC 叫作 Major GC，将对整个堆进行的清理叫作 Full GC，但是这个也没有那么绝对，因为不同的老年代 GC 算法其实表现差异很大，例如 CMS，“concurrent”就体现在清理工作是与工作线程一起并发运行的。
 
@@ -269,7 +269,7 @@ JDK 11中，JDK 又增加了两种全新的 GC 方式，分别是：
 目前，G1 已经成为新版 JDK 的默认选择，且 G1 GC 一直处在快速发展之中。下面会介绍G1调优的步骤：
 首先，先来整体了解一下 G1 GC 的内部结构和主要机制。从内存区域的角度，G1 同样存在着年代的概念，但是与我前面介绍的内存结构很不一样，其内部是类似棋盘状的一个个 region 组成，请参考下面的示意图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200712194732.png" style="zoom:50%;" />
+<img src="img/20200712194732.png" style="zoom:50%;" />
 
 region 的大小是一致的，数值是在 1M 到 32M 字节之间的一个 2 的幂值数，JVM 会尽量划分 2048 个左右、同等大小的 region，这点可以从源码heapRegionBounds.hpp中看到。当然这个数字既可以手动调整，G1 也会根据堆大小自动进行调整。
 
@@ -292,7 +292,7 @@ Java 的集合框架，Collection 接口是所有集合的根，然后扩展开�
 
 广义 Java 集合框架中还包含Map，HashMap 使用频率很高。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200615165653.png" style="zoom:67%;" />
+<img src="img/20200615165653.png" style="zoom:67%;" />
 
 如上图所示每种集合的通用逻辑，都被抽象到相应的抽象类之中，比如 AbstractList 就集中了各种 List 操作的通用部分。这些集合不是完全孤立的，比如，LinkedList 本身，既是 List，也是 Deque 哦。
 
@@ -326,7 +326,7 @@ Queue/Deque，则是 Java 提供的标准队列结构的实现，除了集合的
 ### 2.4 Map
 Map 是广义 Java 集合框架中的另外一部分，Map顶层抽象接口为AbstractMap，实现AbstractMap接口的有，EnumMap、HashMap、TreeMap。Map是以**键值对**的形式存储和操作数据的容器类型。Hashtable例外，它继承了Dictionary类。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616105731.png" style="zoom:67%;" />
+<img src="img/20200616105731.png" style="zoom:67%;" />
 
 * Hashtable 是早期 Java 类库提供的一个哈希表实现，本身是同步的，不支持 null 键和值，由于同步导致的性能开销，所以已经很少被推荐使用。作为类似 Vector、Stack 的早期集合相关类型，它是扩展了 Dictionary 类的，类结构上与 HashMap 之类明显不同。
 * HashMap 是应用更加广泛的哈希表实现，行为上大致上与 HashTable 一致，主要区别在于 HashMap 不是同步的，支持 null 键和值等。通常情况下，HashMap 进行 put 或者 get 操作，可以达到常数时间的性能，所以**它是绝大部分利用键值对存取场景的首选**，比如，实现一个用户 ID 和用户信息对应的运行时存储结构。
@@ -382,7 +382,7 @@ public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneabl
 ```
 通过源码我们来一起看看 HashMap 内部的结构，它可以看作是数组（Node<K,V>[] table）和链表结合组成的复合结构，数组被分为一个个桶（bucket），通过哈希值决定了键值对在这个数组的寻址；哈希值相同的键值对，则以单向链表形式存储，最后放入的对象会被放置在连表头节点，是因为HashMap的发明者认为，**后插入的Entry被查找的可能性更大**。这里需要注意的是，如果链表大小超过阈值（TREEIFY_THRESHOLD, 8），链表就会被改造为树形结构，当连表长度小于或者等于阈值（UNTREEIFY_THRESHOLD，6），树形结构就会变成连表结构。那么，为什么 HashMap 要树化呢？本质上这是个安全问题。因为在元素放置过程中，如果一个对象哈希冲突，都被放置到同一个桶里，则会形成一个链表，我们知道链表查询是线性的，会严重影响存取的性能。HashMap默认长度是16，Java 需要它是 2 的幂数值，如果输入是类似 15 这种非幂值，会被自动调整到 16 之类 2 的幂数值。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200616151815.png" style="zoom:67%;" />
+<img src="img/20200616151815.png" style="zoom:67%;" />
 
 观察HashMap 的源码我们发现存对象的数组`Node<K,V>[] table;`被关键字`transient`修饰，所以当HashMap对象被序列化的时候table字段是没有被序列化的。这有点不符合逻辑，真正存放了数据的数组没有呗序列化？其实在序列化和反序列化的时候，java虚拟机会利用反射的方式调用HashMap中的私有方法`writeObject()`和`readObject()`，来读取和写入`Node<K,V>[] table;`只序列化实际存储元素的数组。引用这种方式序列化是由于不同的虚拟机对于相同 hashCode 产生的 Code 值可能是不一样的，所以反序列化的话的过程也需要在当时的环境中重新计算位置。
 
@@ -444,7 +444,7 @@ static int indexFor(int h, int length) {  //jdk1.7的源码，jdk1.8没有这个
 
 HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到该对象的保存位，而HashMap底层数组的长度总是2的n次方，这是HashMap在速度上的优化。当length总是2的n次方时，`h & (length-1)`运算等价于对length取模，也就是`h % length`，但是&比%具有更高的效率。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617143427.png" alt="hash" style="zoom:67%;" />
+<img src="img/20200617143427.png" alt="hash" style="zoom:67%;" />
 
 而且当HashMap扩容的时候，我们使用的是2次幂的扩展(指长度扩为原来2倍)，所以，元素的位置要么是在原位置，要么是在原位置再移动2次幂的位置。看下图可以明白这句话的意思，n为table的长度，左侧表示扩容前的key1和key2两种key确定索引位置的示例，右侧表示扩容后key1和key2两种key确定索引位置的示例，其中hash1是key1对应的哈希与高位运算结果。
 
@@ -456,7 +456,7 @@ HashMap的定位做的非常巧妙，它通过h` & (table.length -1)`来得到�
 
 因此，我们在扩充HashMap的时候，不需要像JDK1.7的实现那样重新计算hash，只需要看看原来的hash值新增的那个bit是1还是0就好了，是0的话索引没变，是1的话索引变成“原索引+oldCap”，可以看看下图为16扩充为32的resize示意图：
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200617145738.png" style="zoom:50%;" />
+<img src="img/20200617145738.png" style="zoom:50%;" />
 
 #### 2.4.2 LinkedHashMap
 LinkedHashMap 和 TreeMap 都可以保证某种顺序，但二者还是非常不同的，LinkedHashMap 通常提供的是遍历顺序符或插入顺序，它的实现是通过为条目（键值对）维护一个双向链表。
@@ -501,7 +501,7 @@ Concurrent 类型没有类似 CopyOnWrite 之类容器相对较重的修改开�
 
 并发包里提供的线程安全 Map、List 和 Set。请参考下面的类图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703164048.png" style="zoom:67%;" />
+<img src="img/20200703164048.png" style="zoom:67%;" />
 
 你可以看到，总体上种类和结构还是比较简单的，如果我们的应用侧重于 Map 放入或者获取的速度，而不在乎顺序，大多推荐使用 ConcurrentHashMap，反之则使用 ConcurrentSkipListMap；如果我们需要对大量数据进行非常频繁地修改，ConcurrentSkipListMap 也可能表现出优势。
 我在前面的专栏，谈到了普通无顺序场景选择 HashMap，有顺序场景则可以选择类似 TreeMap 等，但是为什么并发容器里面没有 ConcurrentTreeMap 呢？
@@ -510,7 +510,7 @@ Concurrent 类型没有类似 CopyOnWrite 之类容器相对较重的修改开�
 
 下面这张图是 Java 并发类库提供的各种各样的线程安全队列实现
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703175412.png" style="zoom:67%;" />
+<img src="img/20200703175412.png" style="zoom:67%;" />
 
 ##### 2.5.2.1 Semaphore（信号量）
 Java 提供了经典信号量Semaphore的实现，它通过控制一定数量的允许（permit）的方式，来达到限制通用资源访问的目的。你可以想象一下这个场景，在车站、机场等出租车时，当很多空出租车就位时，为防止过度拥挤，调度员指挥排队等待坐车的队伍一次进来 5 个人上车，等这 5 个人坐车出发，再放进去下一批，这和 Semaphore 的工作原理有些类似。如果初始化了一个许可为1的Semaphore，那么就相当于一个不可重入的互斥锁（Mutex）。
@@ -650,7 +650,7 @@ public class CyclicBarrierSample {
 ##### 2.5.2.4 ConcurrentHashMap
 ConcurrentHashMap 的设计实现其实一直在演化，早期 ConcurrentHashMap，其实现是基于分离锁，也就是将内部进行分段（Segment），里面则是 HashEntry 的数组，和 HashMap 类似，哈希相同的条目也是以链表形式存放。HashEntry 内部使用 volatile 的 value 字段来保证可见性，也利用了不可变对象的机制以改进利用 Unsafe [2]提供的底层能力，比如 volatile access，去直接完成部分操作，以最优化性能，毕竟 Unsafe 中的很多操作都是 JVM intrinsic 优化过的。其核心是利用分段设计，在进行并发操作的时候，只需要锁定相应段，这样就有效避免了类似 Hashtable 整体同步的问题，大大提高了性能。在构造的时候，Segment 的数量由所谓的 concurrentcyLevel 决定，默认是 16，也可以在相应构造函数直接指定。注意，Java 需要它是 2 的幂数值，如果输入是类似 15 这种非幂值，会被自动调整到 16 之类 2 的幂数值。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200622192401.png" style="zoom:50%;" />
+<img src="img/20200622192401.png" style="zoom:50%;" />
 
 在进行并发写操作时ConcurrentHashMap 会获取再入锁，以保证数据一致性，Segment 本身就是基于 ReentrantLock 的扩展实现，所以，在并发修改期间，相应 Segment 是被锁定的。在最初阶段，进行重复性的扫描，以确定相应 key 值是否已经在数组里面，进而决定是更新还是放置操作，重复扫描、检测冲突是 ConcurrentHashMap 的常见技巧。ConcurrentHashMap 在扩容时它进行的不是整体的扩容，而是单独对 Segment 进行扩容
 
@@ -659,7 +659,7 @@ ConcurrentHashMap 的设计实现其实一直在演化，早期 ConcurrentHashMa
 ##### 2.5.2.4 ConcurrentSkipListMap
 什么是SkipList？Skip List ，称之为跳表，它是一种可以替代平衡树的数据结构，其数据元素默认按照key值升序，天然有序。Skip list让已排序的数据分布在多层链表中，以0-1随机数决定一个数据的向上攀升与否，通过“空间来换取时间”的一个算法，在每个节点中增加了向前的指针，在插入、删除、查找时可以忽略一些不可能涉及到的结点，从而提高了效率。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703164940.png" style="zoom:67%;" />
+<img src="img/20200703164940.png" style="zoom:67%;" />
 
 SkipList具备如下特性：
 1. 由很多层结构组成，level是通过一定的概率随机产生的
@@ -824,7 +824,7 @@ Java IO 方式有很多种，基于不同的 IO 抽象模型和交互方式，�
 BufferedOutputStream 等带缓冲区的实现，可以避免频繁的磁盘读写，进而提高 IO 处理效率。这种设计利用了缓冲区，将批量数据进行一次操作，但在使用中千万别忘了 flush。
 很多 IO 工具类都实现了 Closeable 接口，因为需要进行资源的释放。比如，打开 FileInputStream，它就会获取相应的文件描述符（FileDescriptor），需要利用 try-with-resources、 try-finally 等机制保证 FileInputStream 被明确关闭，进而相应文件描述符也会失效，否则将导致资源无法被释放。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200701193630.png" style="zoom:50%;" />
+<img src="img/20200701193630.png" style="zoom:50%;" />
 
 #### 3.2.1 阻塞类BIO
 java.io 包，它基于流模型实现，提供了我们最熟知的一些 IO 功能，比如 File 抽象、输入输出流等。交互方式是同步、阻塞的方式。
@@ -888,7 +888,7 @@ public class NIOServer extends Thread {
 ```
 NIO 则是利用了单线程轮询事件的机制，通过高效地定位就绪的 Channel，来决定做什么，仅仅 select 阶段是阻塞的，可以有效避免大量客户端连接时，频繁线程切换带来的问题，应用的扩展能力有了非常大的提高。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200701200102.png" style="zoom:50%;" />
+<img src="img/20200701200102.png" style="zoom:50%;" />
 
 在 Java 7 引入的 NIO 2 中，又增添了一种额外的异步 IO 模式，利用事件和回调，处理 Accept、Read 等操作。 AIO 实现看起来是类似这样子：
 
@@ -920,7 +920,7 @@ serverSock.accept(serverSock, new CompletionHandler<>() { // 为异步操作指�
 
 Netty 的设计强调了 “Separation Of Concerns”，通过精巧设计的事件机制，将业务逻辑和无关技术逻辑进行隔离，并通过各种方便的抽象，一定程度上填补了了基础平台和业务开发之间的鸿沟，更有利于在应用开发中普及业界的最佳实践。简单的来说：Netty > java.nio + java. net！从 API 能力范围来看，Netty 完全是 Java NIO 框架的一个大大的超集，你可以参考 Netty 官方的模块划分。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200729170559.png" style="zoom:50%;" />
+<img src="img/20200729170559.png" style="zoom:50%;" />
 
 除了核心的事件机制等，Netty 还额外提供了很多功能，例如：
 
@@ -931,7 +931,7 @@ Netty 的设计强调了 “Separation Of Concerns”，通过精巧设计的事
 
 下图是 Netty 官方提供的 Server 部分:
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200730105740.png" style="zoom:50%;" />
+<img src="img/20200730105740.png" style="zoom:50%;" />
 
 上面的例子，虽然代码很短，但已经足够体现出 Netty 的几个核心概念，请注意我用红框标记出的部分：
 
@@ -944,7 +944,7 @@ ChannelPipeline，它是 ChannelHandler 链条的容器，每个 Channel 在创�
 
 参考下面的简化示意图，忽略 Inbound/OutBound Handler 的细节，理解这几个基本单元之间的操作流程和对应关系。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200730173929.png" style="zoom:50%;" />
+<img src="img/20200730173929.png" style="zoom:50%;" />
 
 对比 Java 标准 NIO 的代码，Netty 提供的相对高层次的封装，减少了对 Selector 等细节的操纵，而 EventLoop、Pipeline 等机制则简化了编程模型，开发者不用担心并发等问题，在一定程度上简化了应用代码的开发。最难能可贵的是，这一切并没有以可靠性、可扩展性为代价，反而将其大幅度提高。
 
@@ -958,7 +958,7 @@ NIO transferTo/From 的方式可能更快，因为它更能利用现代操作系
 
 操作系统把内存分为用户态空间（User Space）和内核态空间（Kernel Space）当我们使用输入输出流进行读写时，实际上是进行了多次上下文切换，比如应用读取数据时，先在内核态将数据从磁盘读取到内核缓存，再切换到用户态将数据从内核缓存读取到用户缓存。写入操作也是类似，仅仅是步骤相反。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200701201522.png" style="zoom:50%;" />
+<img src="img/20200701201522.png" style="zoom:50%;" />
 
 所以，这种方式会带来一定的额外开销，可能会降低 IO 效率。而基于 NIO transferTo 的实现方式，在 Linux 和 Unix 上，则会使用到零拷贝技术，数据传输并不需要用户态参与，省去了上下文切换的开销和不必要的内存拷贝，进而可能提高应用拷贝性能。注意，transferTo 不仅仅是可以用在文件拷贝中，与其类似的，例如读取磁盘文件，然后进行 Socket 发送，同样可以享受这种机制带来的性能和扩展性提高。
 
@@ -978,7 +978,7 @@ NIO transferTo/From 的方式可能更快，因为它更能利用现代操作系
 
 Java中除了 synchronized 和 ReentrantLock，Java 核心类库中还有其他一些特别的锁类型，具体请参考下面的图。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200702193724.png" style="zoom: 67%;" />
+<img src="img/20200702193724.png" style="zoom: 67%;" />
 
 在Java中锁斌不是都是实现了 Lock 接口，ReadWriteLock 是一个单独的接口，它通常是代表了一对儿锁，分别对应只读和写操作，标准类库中提供了再入版本的读写锁实现（ReentrantReadWriteLock），对应的语义和 ReentrantLock 比较相似。
 
@@ -1018,6 +1018,12 @@ public class RWSample {
 在运行过程中，如果读锁试图锁定时，写锁是被某个线程持有，读锁将无法获得，而只好等待对方操作结束，这样就可以自动保证不会读取到有争议的数据。读写锁看起来比 synchronized 的粒度似乎细一些，但在实际应用中，其表现也并不尽如人意，主要还是因为相对比较大的开销。
 
 所以，在Java8引入了 StampedLock，在提供类似读写锁的同时，还支持优化读模式。优化读基于假设，大多数情况下读操作并不会和写操作冲突，其逻辑是先试着读，然后通过 validate 方法确认是否进入了写模式，如果没有进入，就成功避免了开销；如果进入，则尝试获取读锁。这种读锁是一种乐观锁。
+
+**synchronized 和 lock 的区别**
+
+![image-20220718165820339](img/image-20220718165820339.png)
+
+
 
 #### 3.3.1 synchronized
 synchronized属于独占锁、悲观锁，它是在假设一定会发生冲突的，当一个线程已经获取当前锁时，其他试图获取的线程只能等待或者阻塞在那里。
@@ -1106,7 +1112,7 @@ static final class FairSync extends Sync {
 AQS核心思想是，如果被请求的共享资源空闲，那么就将当前请求资源的线程设置为有效的工作线程，将共享资源设置为锁定状态；如果共享资源被占用，就需要一定的阻塞等待唤醒机制来保证锁分配。这个机制主要用的是CLH队列的变体实现的，将暂时获取不到锁的线程加入到队列中。
 CLH：Craig、Landin and Hagersten队列，是单向链表，AQS中的队列是CLH变体的虚拟双向队列（FIFO），AQS是通过将每条请求共享资源的线程封装成一个节点来实现锁的分配。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705190945.png" alt="img" style="zoom: 67%;" />
+<img src="img/20200705190945.png" alt="img" style="zoom: 67%;" />
 
 AQS使用一个Volatile的int类型的成员变量来表示同步状态，通过内置的FIFO队列来完成资源获取的排队工作，通过CAS完成对State值的修改。
 
@@ -1150,7 +1156,7 @@ Happen-before 关系，是 Java 内存模型中保证多线程操作可见性的
 基类 Object 提供了一些基础的 wait/notify/notifyAll 方法。如果我们持有某个对象的 Monitor 锁，调用 wait 会让当前线程处于等待状态，直到其他线程 notify 或者 notifyAll。所以，本质上是提供了 Monitor 的获取和释放的能力，是基本的线程间通信方式。
 并发类库中的工具，比如 CountDownLatch.await() 会让当前线程进入等待状态，直到 latch 被基数为 0，这可以看作是线程间通信的 Signal。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200703102212.png" style="zoom:50%;" />
+<img src="img/20200703102212.png" style="zoom:50%;" />
 
 Thread 和 Object 的方法，听起来简单，但是实际应用中被证明非常晦涩、易错，Java 后来又引入了并发包。总的来说，有了并发包，大多数情况下，我们已经不再需要去调用 wait/notify 之类的方法了。
 
@@ -1163,7 +1169,7 @@ Executors 目前提供了 5 种不同的线程池创建配置：
 * newSingleThreadScheduledExecutor() 和 newScheduledThreadPool(int corePoolSize)，创建的是个 ScheduledExecutorService，可以进行定时或周期性的工作调度，区别在于单一工作线程还是多个工作线程。
 * newWorkStealingPool(int parallelism)，这是一个经常被人忽略的线程池，Java 8 才加入这个创建方法，其内部会构建ForkJoinPool，利用Work-Stealing算法，并行地处理任务，不保证处理顺序。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705182243.png" style="zoom:50%;" />
+<img src="img/20200705182243.png" style="zoom:50%;" />
 
 从上图可以看出Executor 是一个基础的接口，其初衷是将任务提交和任务执行细节解耦，这一点可以体会其定义的唯一方法。`void execute(Runnable command);`Executor 的设计是源于 Java 早期线程 API 使用的教训，开发者在实现应用逻辑时，被太多线程创建、调度等不相关细节所打扰。就像我们进行 HTTP 通信，如果还需要自己操作 TCP 握手，开发效率低下，质量也难以保证。
 ExecutorService 则更加完善，不仅提供 service 的管理功能，比如 shutdown 等方法，也提供了更加全面的提交任务机制，如返回Future而不是 void 的 submit 方法。`<T> Future<T> submit(Callable<T> task);
@@ -1171,7 +1177,7 @@ ExecutorService 则更加完善，不仅提供 service 的管理功能，比如 
 Java 标准类库提供了几种基础实现，比如ThreadPoolExecutor、ScheduledThreadPoolExecutor、ForkJoinPool。这些线程池的设计特点在于其高度的可调节性和灵活性，以尽量满足复杂多变的实际应用场景，我会进一步分析其构建部分的源码，剖析这种灵活性的源头。
 ScheduledThreadPoolExecutor 是 ThreadPoolExecutor 的扩展，主要是增加了调度逻辑，ForkJoinPool 则是为 ForkJoinTask 定制的线程池，与通常意义的线程池有所不同。下面是应用于线程交互：
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705183559.png" style="zoom:50%;" />
+<img src="img/20200705183559.png" style="zoom:50%;" />
 
 工作队列负责存储用户提交的各个任务，这个工作队列，可以是容量为 0 的 SynchronousQueue（使用 newCachedThreadPool），也可以是像固定大小线程池（newFixedThreadPool）那样使用 LinkedBlockingQueue。`private final BlockingQueue<Runnable> workQueue;`
 内部的“线程池”，这是指保持工作线程的集合，线程池需要在运行过程中管理线程创建、销毁。例如，对于带缓存的线程池，当任务压力较大时，线程池会创建新的工作线程；当业务压力退去，线程池会在闲置一段时间（默认 60 秒）后结束线程。`private final HashSet<Worker> workers = new HashSet<>();`
@@ -1195,7 +1201,7 @@ public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveT
 ```
 下图为线程的流转：
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200705193410.png" style="zoom:50%;" />
+<img src="img/20200705193410.png" style="zoom:50%;" />
 
 下面是execute 方法源码：
 
@@ -1251,11 +1257,11 @@ Java 是最早尝试提供内存模型的语言，这是简化多线程编程、
 
 我画了一个简单的角色层次图，不同工程师分工合作，其实所处的层面是有区别的。JMM 为 Java 工程师隔离了不同处理器内存排序的区别，这也是为什么我通常不建议过早深入处理器体系结构，某种意义上来说，这样本就违背了 JMM 的初衷。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200727141851.png" style="zoom: 50%;" />
+<img src="img/20200727141851.png" style="zoom: 50%;" />
 
  JVM 内部的运行时数据区，但是真正程序执行，实际是要跑在具体的处理器内核上。你可以简单理解为，把本地变量等数据从内存加载到缓存、寄存器，然后运算结束写回主内存。你可以从下面示意图，看这两种模型的对应。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200727142143.png" style="zoom:50%;" />
+<img src="img/20200727142143.png" style="zoom:50%;" />
 
 看上去很美好，但是当多线程共享变量时，情况就复杂了。试想，如果处理器对某个共享变量进行了修改，可能只是体现在该内核的缓存里，这是个本地状态，而运行在其他内核上的线程，可能还是加载的旧状态，这很可能导致一致性的问题。从理论上来说，多线程共享引入了复杂的数据依赖性，不管编译器、处理器怎么做重排序，都必须尊重数据依赖性的要求，否则就打破了正确性！这就是 JMM 所要解决的问题。
 
@@ -1267,6 +1273,18 @@ JMM 内部的实现通常是依赖于所谓的内存屏障，通过禁止某些�
 - 对该变量的读操作**之前**，编译器会插入一个**读屏障**。
 
 内存屏障能够在类似变量读、写操作之后，保证其他线程对 volatile 变量的修改对当前线程可见，或者本地修改对其他线程提供可见性。换句话说，线程写入，写屏障会通过类似强迫刷出处理器缓存的方式，让其他线程能够拿到最新数值。
+
+
+
+### 3.7 JVM 内存结构
+
+![image-20220718183842576](img/image-20220718183842576.png)
+
+### 3.8 threadLocal
+
+![image-20220718182619107](img/image-20220718182619107.png)
+
+
 
 ## 名词解释
 
@@ -1286,9 +1304,10 @@ final void checkForComodification() {
     if (modCount != expectedModCount)
         throw new ConcurrentModificationException();
 }
-```
+
 会在上面的代码中发现`modCount` 是ArrayList中的一个成员变量。它表示该集合实际被修改的次数，数组初始化时默认值为0。`expectedModCount` 是 ArrayList中的一个内部类，也是iterator中的成员变量，它表示这个迭代器预期该集合被修改的次数，值随着Itr被创建而初始化。那么，接着我们看下`userNames.remove(userName);`里面做了什么事情，为什么会导致`expectedModCount`和`modCount`不一样。通过翻阅代码，我们也可以发现，remove方法核心逻辑如下：
-​``` java
+
+```
 private void fastRemove(int index) {
     modCount++;
     int numMoved = size - index - 1;
@@ -1302,7 +1321,7 @@ private void fastRemove(int index) {
 
 画一张图理解一下
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200618185354.png" style="zoom:67%;" />
+<img src="img/20200618185354.png" style="zoom:67%;" />
 
 所以，在使用Java的集合类的时候，如果发生CMException，优先考虑fail-fast有关的情况，实际上这里并没有真的发生并发，只是Iterator使用了fail-fast的保护机制，只要他发现有某一次修改是未经过自己进行的，那么就会抛出异常。
 
@@ -1474,7 +1493,7 @@ public native void fullFence();
 ```
 在Java 8中引入了一种锁的新机制——StampedLock，它可以看成是读写锁的一个改进版本。StampedLock提供了一种乐观读锁的实现，这种乐观读锁类似于无锁的操作，完全不会阻塞写线程获取写锁，从而缓解读多写少时写线程“饥饿”现象。由于StampedLock提供的乐观读锁不阻塞写线程获取读锁，当线程共享变量从主内存load到线程工作内存时，会存在数据不一致问题，所以当使用StampedLock的乐观读锁时，需要遵从如下图用例中使用的模式来确保数据的一致性。
 
-<img src="https://gitee.com/suqianlei/Pic-Go-Repository/raw/master/img/20200623192412.png" alt="img" style="zoom: 33%;" />
+<img src="img/20200623192412.png" alt="img" style="zoom: 33%;" />
 
 如上图用例所示计算坐标点Point对象，包含点移动方法move及计算此点到原点的距离的方法distanceFromOrigin。在方法distanceFromOrigin中，首先，通过tryOptimisticRead方法获取乐观读标记；然后从主内存中加载点的坐标值 (x,y)；而后通过StampedLock的validate方法校验锁状态，判断坐标点(x,y)从主内存加载到线程工作内存过程中，主内存的值是否已被其他线程通过move方法修改，如果validate返回值为true，证明(x, y)的值未被修改，可参与后续计算；否则，需加悲观读锁，再次从主内存加载(x,y)的最新值，然后再进行距离计算。其中，校验锁状态这步操作至关重要，需要判断锁状态是否发生改变，从而判断之前copy到线程工作内存中的值是否与主内存的值存在不一致。
 
